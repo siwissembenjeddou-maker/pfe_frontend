@@ -8,7 +8,7 @@ import '../../models/models.dart';
 import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
 import '../../widgets/common_widgets.dart';
-
+import 'dart:convert';
 
 class PsychologistScreen extends StatefulWidget {
   const PsychologistScreen({super.key});
@@ -544,24 +544,80 @@ class _MessagesTab extends StatefulWidget {
 }
 
 class _MessagesTabState extends State<_MessagesTab> {
-  final _msgCtrl = TextEditingController();
-  List<dynamic> _conversations = [];
+  // Use a Future to hold the API call result
+  late Future<List<dynamic>> _conversationsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize the API call when the tab opens
+    _conversationsFuture = ApiService.getConversations();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _conversations.isEmpty
-          ? const EmptyState(
-          icon: Icons.chat_bubble_outline,
-          message: 'No conversations yet.\nContact parents directly after reviewing assessments.')
-          : ListView.builder(
-          itemCount: _conversations.length,
-          itemBuilder: (_, i) => ListTile(
-            leading: const CircleAvatar(child: Icon(Icons.person)),
-            title: Text(_conversations[i]['name'] ?? ''),
-            subtitle: Text(_conversations[i]['last_message'] ?? ''),
-            onTap: () {},
-          )),
+      body: FutureBuilder<List<dynamic>>(
+        future: _conversationsFuture,
+        builder: (context, snapshot) {
+          // 1. Show a loading spinner while waiting for the Backend
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          // 2. Show an error message if the Backend is down or the token expired
+          if (snapshot.hasError) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.error_outline, color: Colors.red, size: 40),
+                  const SizedBox(height: 10),
+                  Text('Connection Error: ${snapshot.error}'),
+                  TextButton(
+                    onPressed: () => setState(() {
+                      _conversationsFuture = ApiService.getConversations();
+                    }),
+                    child: const Text('Try Again'),
+                  )
+                ],
+              ),
+            );
+          }
+
+          // 3. Check if we actually got data
+          final conversations = snapshot.data ?? [];
+
+          if (conversations.isEmpty) {
+            return const EmptyState(
+              icon: Icons.chat_bubble_outline,
+              message: 'No conversations yet.\nContact parents directly after reviewing assessments.',
+            );
+          }
+
+          // 4. Show the real list of conversations from the database
+          return ListView.builder(
+            itemCount: conversations.length,
+            itemBuilder: (_, i) {
+              final conversation = conversations[i];
+              return ListTile(
+                leading: const CircleAvatar(child: Icon(Icons.person)),
+                // Matches the JSON keys from your Backend
+                title: Text(conversation['other_user_name'] ?? 'User'),
+                subtitle: Text(
+                  conversation['last_message'] ?? 'Click to start chatting',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  // TODO: Navigate to the Chat Detail screen
+                },
+              );
+            },
+          );
+        },
+      ),
     );
   }
 }

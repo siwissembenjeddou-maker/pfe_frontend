@@ -244,4 +244,23 @@ class ApiService {
     final headers = await _headers();
     await http.delete(Uri.parse('$baseUrl/users/$userId'), headers: headers);
   }
+ static Future<List<dynamic>> getConversations() async {
+    final token = await _getToken(); // Make sure this helper exists in your service
+
+    final response = await http.get(
+      Uri.parse('$baseUrl/messages/conversations'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      return json.decode(response.body);
+    } else {
+      throw Exception('Failed to load conversations');
+    }
+  }
+
 }
+
