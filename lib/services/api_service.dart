@@ -37,6 +37,18 @@ class ApiService {
     }
   }
 
+  static Future<Map<String, dynamic>> updateProfile(
+      Map<String, dynamic> data) async {
+    final headers = await _headers();
+    final res = await http.patch(
+      Uri.parse('$baseUrl/auth/me/update'),
+      headers: headers,
+      body: jsonEncode(data),
+    );
+    if (res.statusCode == 200) return jsonDecode(res.body);
+    return {};
+  }
+
   // ─── CHILDREN ──────────────────────────────────────────
   static Future<List<dynamic>> getChildren({String? parentId}) async {
     final headers = await _headers();
@@ -56,6 +68,22 @@ class ApiService {
       body: jsonEncode(data),
     );
     return jsonDecode(res.body);
+  }
+
+  static Future<Map<String, dynamic>> updateChild(
+      String childId, Map<String, dynamic> data) async {
+    final headers = await _headers();
+    final res = await http.put(
+      Uri.parse('$baseUrl/children/$childId'),
+      headers: headers,
+      body: jsonEncode(data),
+    );
+    return jsonDecode(res.body);
+  }
+
+  static Future<void> deleteChild(String childId) async {
+    final headers = await _headers();
+    await http.delete(Uri.parse('$baseUrl/children/$childId'), headers: headers);
   }
 
   // ─── ASSESSMENTS ───────────────────────────────────────
@@ -160,6 +188,14 @@ class ApiService {
   }
 
   // ─── MESSAGES ──────────────────────────────────────────
+  static Future<List<dynamic>> getConversations() async {
+    final headers = await _headers();
+    final res = await http.get(
+        Uri.parse('$baseUrl/messages/conversations'), headers: headers);
+    if (res.statusCode == 200) return jsonDecode(res.body);
+    return [];
+  }
+
   static Future<List<dynamic>> getMessages(String conversationId) async {
     final headers = await _headers();
     final res = await http.get(
@@ -219,6 +255,36 @@ class ApiService {
     return [];
   }
 
+  // ─── ATTENDANCE ────────────────────────────────────────
+  static Future<List<dynamic>> getAttendance({String? date}) async {
+    final headers = await _headers();
+    final query = date != null ? '?date=$date' : '';
+    final res = await http.get(
+        Uri.parse('$baseUrl/attendance$query'), headers: headers);
+    if (res.statusCode == 200) return jsonDecode(res.body);
+    return [];
+  }
+
+  static Future<Map<String, dynamic>> saveAttendance(
+      Map<String, dynamic> data) async {
+    final headers = await _headers();
+    final res = await http.post(
+      Uri.parse('$baseUrl/attendance'),
+      headers: headers,
+      body: jsonEncode(data),
+    );
+    return jsonDecode(res.body);
+  }
+
+  // ─── SYSTEM LOGS ───────────────────────────────────────
+  static Future<List<dynamic>> getSystemLogs() async {
+    final headers = await _headers();
+    final res = await http.get(
+        Uri.parse('$baseUrl/logs'), headers: headers);
+    if (res.statusCode == 200) return jsonDecode(res.body);
+    return [];
+  }
+
   // ─── USERS (Admin) ─────────────────────────────────────
   static Future<List<dynamic>> getAllUsers({String? role}) async {
     final headers = await _headers();
@@ -245,3 +311,4 @@ class ApiService {
     await http.delete(Uri.parse('$baseUrl/users/$userId'), headers: headers);
   }
 }
+

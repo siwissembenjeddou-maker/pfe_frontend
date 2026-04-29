@@ -11,7 +11,7 @@ import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
 import '../../widgets/common_widgets.dart';
 import '../../models/models.dart';
-import 'solutions_screen.dart'; //
+import 'solutions_screen.dart';
 
 class ParentScreen extends StatefulWidget {
   const ParentScreen({super.key});
@@ -24,8 +24,6 @@ class _ParentScreenState extends State<ParentScreen> {
   List<Child> _children = [];
   List<dynamic> _notifications = [];
   bool _loading = true;
-
-  // ── NEW: tracks which child the parent is viewing solutions for ──
   Child? _selectedChildForSolutions;
 
   @override
@@ -35,16 +33,14 @@ class _ParentScreenState extends State<ParentScreen> {
   }
 
   Future<void> _loadData() async {
-    final user        = context.read<AuthService>().currentUser;
+    final user = context.read<AuthService>().currentUser;
     final childrenData = await ApiService.getChildren(parentId: user?.id);
-    final notifData   = await ApiService.getNotifications();
+    final notifData = await ApiService.getNotifications();
     if (mounted) {
       setState(() {
         _children = childrenData.map((c) => Child.fromJson(c)).toList();
         _notifications = notifData;
         _loading = false;
-
-        // Auto-select the first child that has assessments for Solutions tab
         _selectedChildForSolutions = _children.firstWhere(
               (c) => c.assessments.isNotEmpty,
           orElse: () => _children.isNotEmpty ? _children.first : _selectedChildForSolutions!,
@@ -53,36 +49,25 @@ class _ParentScreenState extends State<ParentScreen> {
     }
   }
 
-  // ── Called from DashboardTab when parent taps "View Solutions" on a child ──
   void _openSolutionsForChild(Child child) {
     setState(() {
       _selectedChildForSolutions = child;
-      _currentIndex = 3; // Solutions tab index
+      _currentIndex = 3;
     });
   }
 
   @override
   Widget build(BuildContext context) {
     final user = context.watch<AuthService>().currentUser;
-
     final pages = [
-      // 0 — Home
-      _DashboardTab(
-        children: _children,
-        onRefresh: _loadData,
-        onViewSolutions: _openSolutionsForChild, // ← NEW callback
-      ),
-      // 1 — Assess
+      _DashboardTab(children: _children, onRefresh: _loadData, onViewSolutions: _openSolutionsForChild),
       _AssessmentTab(children: _children),
-      // 2 — Results
       _ResultsTab(children: _children),
-      // 3 — Solutions (NEW)
       _SolutionsWrapper(
         children: _children,
         selectedChild: _selectedChildForSolutions,
         onChildChanged: (child) => setState(() => _selectedChildForSolutions = child),
       ),
-      // 4 — Alerts
       _NotificationsTab(notifications: _notifications, onRefresh: _loadData),
     ];
 
@@ -90,86 +75,43 @@ class _ParentScreenState extends State<ParentScreen> {
       appBar: AppBar(
         title: Column(children: [
           const Text('AutiSense', style: TextStyle(fontWeight: FontWeight.bold)),
-          Text('Parent: ${user?.name ?? ''}',
-              style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+          Text('Parent: ${user?.name ?? ''}', style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
         ]),
         actions: [
-          // Notification bell with unread dot
           Stack(children: [
-            IconButton(
-              icon: const Icon(Icons.notifications_outlined),
-              onPressed: () => setState(() => _currentIndex = 4),
-            ),
+            IconButton(icon: const Icon(Icons.notifications_outlined), onPressed: () => setState(() => _currentIndex = 4)),
             if (_notifications.any((n) => n['is_read'] == false))
-              Positioned(
-                right: 8, top: 8,
-                child: Container(
-                  width: 10, height: 10,
-                  decoration: const BoxDecoration(
-                      color: AppTheme.danger, shape: BoxShape.circle),
-                ),
-              ),
+              Positioned(right: 8, top: 8, child: Container(width: 10, height: 10, decoration: const BoxDecoration(color: AppTheme.danger, shape: BoxShape.circle))),
           ]),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () async {
-              await context.read<AuthService>().logout();
-              if (mounted) Navigator.pushReplacementNamed(context, '/login');
-            },
-          ),
+          IconButton(icon: const Icon(Icons.logout), onPressed: () async {
+            await context.read<AuthService>().logout();
+            if (mounted) Navigator.pushReplacementNamed(context, '/login');
+          }),
         ],
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : pages[_currentIndex],
+      body: _loading ? const Center(child: CircularProgressIndicator()) : pages[_currentIndex],
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
         onDestinationSelected: (i) => setState(() => _currentIndex = i),
         indicatorColor: AppTheme.primary.withOpacity(0.15),
         destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.mic_outlined),
-            selectedIcon: Icon(Icons.mic),
-            label: 'Assess',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.bar_chart_outlined),
-            selectedIcon: Icon(Icons.bar_chart),
-            label: 'Results',
-          ),
-          // ── NEW TAB ──
-          NavigationDestination(
-            icon: Icon(Icons.lightbulb_outline),
-            selectedIcon: Icon(Icons.lightbulb),
-            label: 'Solutions',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.notifications_outlined),
-            selectedIcon: Icon(Icons.notifications),
-            label: 'Alerts',
-          ),
+          NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Home'),
+          NavigationDestination(icon: Icon(Icons.mic_outlined), selectedIcon: Icon(Icons.mic), label: 'Assess'),
+          NavigationDestination(icon: Icon(Icons.bar_chart_outlined), selectedIcon: Icon(Icons.bar_chart), label: 'Results'),
+          NavigationDestination(icon: Icon(Icons.lightbulb_outline), selectedIcon: Icon(Icons.lightbulb), label: 'Solutions'),
+          NavigationDestination(icon: Icon(Icons.notifications_outlined), selectedIcon: Icon(Icons.notifications), label: 'Alerts'),
         ],
       ),
       floatingActionButton: _currentIndex == 0
-          ? FloatingActionButton.extended(
-        onPressed: _showAddChildDialog,
-        icon: const Icon(Icons.add),
-        label: const Text('Add Child'),
-        backgroundColor: AppTheme.primary,
-      )
+          ? FloatingActionButton.extended(onPressed: _showAddChildDialog, icon: const Icon(Icons.add), label: const Text('Add Child'), backgroundColor: AppTheme.primary)
           : null,
     );
   }
 
   void _showAddChildDialog() {
     final nameCtrl = TextEditingController();
-    final dobCtrl  = TextEditingController();
-    String gender  = 'male';
+    final dobCtrl = TextEditingController();
+    String gender = 'male';
     showDialog(
       context: context,
       builder: (_) => StatefulBuilder(
@@ -179,64 +121,28 @@ class _ParentScreenState extends State<ParentScreen> {
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TextField(
-                controller: nameCtrl,
-                decoration: const InputDecoration(labelText: "Child's Name"),
-              ),
+              TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: "Child's Name")),
               const SizedBox(height: 12),
-              TextField(
-                controller: dobCtrl,
-                decoration: const InputDecoration(
-                    labelText: 'Date of Birth',
-                    suffixIcon: Icon(Icons.calendar_today)),
-                onTap: () async {
-                  final date = await showDatePicker(
-                    context: ctx,
-                    initialDate: DateTime(2018),
-                    firstDate: DateTime(2000),
-                    lastDate: DateTime.now(),
-                  );
-                  if (date != null) {
-                    dobCtrl.text = DateFormat('yyyy-MM-dd').format(date);
-                  }
-                },
-                readOnly: true,
-              ),
+              TextField(controller: dobCtrl, decoration: const InputDecoration(labelText: 'Date of Birth', suffixIcon: Icon(Icons.calendar_today)), onTap: () async {
+                final date = await showDatePicker(context: ctx, initialDate: DateTime(2018), firstDate: DateTime(2000), lastDate: DateTime.now());
+                if (date != null) dobCtrl.text = DateFormat('yyyy-MM-dd').format(date);
+              }, readOnly: true),
               const SizedBox(height: 12),
               Row(children: [
                 const Text('Gender: '),
-                ChoiceChip(
-                  label: const Text('Male'),
-                  selected: gender == 'male',
-                  onSelected: (_) => setS(() => gender = 'male'),
-                ),
+                ChoiceChip(label: const Text('Male'), selected: gender == 'male', onSelected: (_) => setS(() => gender = 'male')),
                 const SizedBox(width: 8),
-                ChoiceChip(
-                  label: const Text('Female'),
-                  selected: gender == 'female',
-                  onSelected: (_) => setS(() => gender = 'female'),
-                ),
+                ChoiceChip(label: const Text('Female'), selected: gender == 'female', onSelected: (_) => setS(() => gender = 'female')),
               ]),
             ],
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel'),
-            ),
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
             ElevatedButton(
               onPressed: () async {
                 final user = context.read<AuthService>().currentUser;
-                await ApiService.addChild({
-                  'name': nameCtrl.text,
-                  'date_of_birth': dobCtrl.text,
-                  'gender': gender,
-                  'parent_id': user?.id,
-                });
-                if (mounted) {
-                  Navigator.pop(ctx);
-                  _loadData();
-                }
+                await ApiService.addChild({'name': nameCtrl.text, 'date_of_birth': dobCtrl.text, 'gender': gender, 'parent_id': user?.id});
+                if (mounted) { Navigator.pop(ctx); _loadData(); }
               },
               child: const Text('Add'),
             ),
@@ -245,91 +151,112 @@ class _ParentScreenState extends State<ParentScreen> {
       ),
     );
   }
-}
 
-// ─────────────────────────────────────────────────────────────
-// SOLUTIONS WRAPPER  (NEW)
-// Lets the parent pick which child to view solutions for.
-// ─────────────────────────────────────────────────────────────
-class _SolutionsWrapper extends StatelessWidget {
-  final List<Child> children;
-  final Child? selectedChild;
-  final ValueChanged<Child> onChildChanged;
-
-  const _SolutionsWrapper({
-    required this.children,
-    required this.selectedChild,
-    required this.onChildChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    if (children.isEmpty) {
-      return const EmptyState(
-        icon: Icons.child_care,
-        message: 'No children added yet.\nTap + on the Home tab to add your child.',
-      );
-    }
-
-    return Column(
-      children: [
-        // ── Child picker bar ─────────────────────────────────
-        Container(
-          color: Colors.white,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          child: Row(children: [
-            const Icon(Icons.child_care, color: AppTheme.primary, size: 20),
-            const SizedBox(width: 10),
-            Expanded(
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<Child>(
-                  value: selectedChild,
-                  isExpanded: true,
-                  hint: const Text('Select a child'),
-                  items: children.map((c) => DropdownMenuItem(
-                    value: c,
-                    child: Text(
-                      '${c.name}  (${c.age} yrs)',
-                      style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.textPrimary),
-                    ),
-                  )).toList(),
-                  onChanged: (c) { if (c != null) onChildChanged(c); },
-                ),
-              ),
+  void _showEditChildDialog(Child child) {
+    final nameCtrl = TextEditingController(text: child.name);
+    final dobCtrl = TextEditingController(text: DateFormat('yyyy-MM-dd').format(child.dateOfBirth));
+    String gender = child.gender;
+    showDialog(
+      context: context,
+      builder: (_) => StatefulBuilder(
+        builder: (ctx, setS) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('Edit Child Profile'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: "Child's Name")),
+              const SizedBox(height: 12),
+              TextField(controller: dobCtrl, decoration: const InputDecoration(labelText: 'Date of Birth', suffixIcon: Icon(Icons.calendar_today)), onTap: () async {
+                final date = await showDatePicker(context: ctx, initialDate: child.dateOfBirth, firstDate: DateTime(2000), lastDate: DateTime.now());
+                if (date != null) dobCtrl.text = DateFormat('yyyy-MM-dd').format(date);
+              }, readOnly: true),
+              const SizedBox(height: 12),
+              Row(children: [
+                const Text('Gender: '),
+                ChoiceChip(label: const Text('Male'), selected: gender == 'male', onSelected: (_) => setS(() => gender = 'male')),
+                const SizedBox(width: 8),
+                ChoiceChip(label: const Text('Female'), selected: gender == 'female', onSelected: (_) => setS(() => gender = 'female')),
+              ]),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            ElevatedButton(
+              onPressed: () async {
+                await ApiService.updateChild(child.id, {'name': nameCtrl.text, 'date_of_birth': dobCtrl.text, 'gender': gender});
+                if (mounted) { Navigator.pop(ctx); _loadData(); }
+              },
+              child: const Text('Save'),
             ),
-          ]),
+          ],
         ),
-        const Divider(height: 1),
+      ),
+    );
+  }
 
-        // ── Solutions content ─────────────────────────────────
-        Expanded(
-          child: selectedChild == null
-              ? const EmptyState(
-            icon: Icons.lightbulb_outline,
-            message: 'Select a child above to view personalised solutions.',
-          )
-              : SolutionsTab(child: selectedChild!),
-        ),
-      ],
+  void _confirmDeleteChild(Child child) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Delete Child'),
+        content: Text('Remove ${child.name}? This cannot be undone.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.danger),
+            onPressed: () async {
+              await ApiService.deleteChild(child.id);
+              if (mounted) { Navigator.pop(context); _loadData(); }
+            },
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
     );
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// DASHBOARD TAB  (updated — added "View Solutions" button)
-// ─────────────────────────────────────────────────────────────
+class _SolutionsWrapper extends StatelessWidget {
+  final List<Child> children;
+  final Child? selectedChild;
+  final ValueChanged<Child> onChildChanged;
+  const _SolutionsWrapper({required this.children, required this.selectedChild, required this.onChildChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    if (children.isEmpty) return const EmptyState(icon: Icons.child_care, message: 'No children added yet.\nTap + on the Home tab to add your child.');
+    return Column(children: [
+      Container(
+        color: Colors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        child: Row(children: [
+          const Icon(Icons.child_care, color: AppTheme.primary, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<Child>(
+                value: selectedChild,
+                isExpanded: true,
+                hint: const Text('Select a child'),
+                items: children.map((c) => DropdownMenuItem(value: c, child: Text('${c.name}  (${c.age} yrs)', style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.textPrimary)))).toList(),
+                onChanged: (c) { if (c != null) onChildChanged(c); },
+              ),
+            ),
+          ),
+        ]),
+      ),
+      const Divider(height: 1),
+      Expanded(child: selectedChild == null ? const EmptyState(icon: Icons.lightbulb_outline, message: 'Select a child above to view personalised solutions.') : SolutionsTab(child: selectedChild!)),
+    ]);
+  }
+}
+
 class _DashboardTab extends StatelessWidget {
   final List<Child> children;
   final VoidCallback onRefresh;
-  final ValueChanged<Child> onViewSolutions; // ← NEW
-
-  const _DashboardTab({
-    required this.children,
-    required this.onRefresh,
-    required this.onViewSolutions,
-  });
+  final ValueChanged<Child> onViewSolutions;
+  const _DashboardTab({required this.children, required this.onRefresh, required this.onViewSolutions});
 
   @override
   Widget build(BuildContext context) {
@@ -338,67 +265,143 @@ class _DashboardTab extends StatelessWidget {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // Welcome card
           Container(
             padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: AppTheme.primaryGradient,
-              borderRadius: BorderRadius.circular(20),
-            ),
+            decoration: BoxDecoration(gradient: AppTheme.primaryGradient, borderRadius: BorderRadius.circular(20)),
             child: Row(children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Hello, ${context.read<AuthService>().currentUser?.name ?? 'Parent'}! 👋',
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${children.length} child profile(s) registered',
-                      style: const TextStyle(color: Colors.white70),
-                    ),
-                  ],
-                ),
-              ),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('Hello, ${context.read<AuthService>().currentUser?.name ?? 'Parent'}! 👋', style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                Text('${children.length} child profile(s) registered', style: const TextStyle(color: Colors.white70)),
+              ])),
               const Icon(Icons.family_restroom, color: Colors.white, size: 50),
             ]),
           ),
           const SizedBox(height: 20),
-
           const SectionTitle('My Children'),
-          if (children.isEmpty)
-            const EmptyState(
-              icon: Icons.child_care,
-              message: 'No children added yet.\nTap + to add your child.',
-            ),
-
-          // ── Each child card + Solutions shortcut button ──
-          ...children.map((child) => _ChildCardWithSolutions(
-            child: child,
-            onViewSolutions: () => onViewSolutions(child),
-          )),
+          if (children.isEmpty) const EmptyState(icon: Icons.child_care, message: 'No children added yet.\nTap + to add your child.'),
+          ...children.map((child) => _ChildCardWithActions(child: child, onViewSolutions: () => onViewSolutions(child))),
         ],
       ),
     );
   }
 }
 
-// ─────────────────────────────────────────────────────────────
+class _ChildCardWithActions extends StatelessWidget {
+  final Child child;
+  final VoidCallback onViewSolutions;
+  const _ChildCardWithActions({required this.child, required this.onViewSolutions});
+
+  @override
+  Widget build(BuildContext context) {
+    final parentState = context.findAncestorStateOfType<_ParentScreenState>();
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Column(children: [
+        Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(children: [
+            CircleAvatar(radius: 26, backgroundColor: AppTheme.primary.withOpacity(0.1), child: Text(child.name[0], style: const TextStyle(color: AppTheme.primary, fontSize: 20, fontWeight: FontWeight.bold))),
+            const SizedBox(width: 14),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(child.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              Text('${child.age} years • ${child.gender}', style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+              if (child.assessments.isNotEmpty) Text('${child.assessments.length} assessment(s)', style: const TextStyle(color: AppTheme.primary, fontSize: 12)),
+            ])),
+            if (child.assessments.isNotEmpty) ScoreBadge(score: child.assessments.last.correctedScore ?? child.assessments.last.autismScore),
+          ]),
+        ),
+        const Divider(height: 1),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          child: Row(children: [
+            TextButton.icon(icon: const Icon(Icons.edit, size: 16), label: const Text('Edit', style: TextStyle(fontSize: 12)), onPressed: () => parentState?._showEditChildDialog(child)),
+            TextButton.icon(icon: const Icon(Icons.delete_outline, size: 16, color: AppTheme.danger), label: const Text('Delete', style: TextStyle(fontSize: 12, color: AppTheme.danger)), onPressed: () => parentState?._confirmDeleteChild(child)),
+            const Spacer(),
+            if (child.assessments.isNotEmpty) TextButton.icon(icon: const Icon(Icons.lightbulb, size: 16, color: AppTheme.accent), label: const Text('Solutions', style: TextStyle(fontSize: 12, color: AppTheme.accent)), onPressed: onViewSolutions),
+          ]),
+        ),
+      ]),
+    );
+  }
+}
+
+class _AssessmentTab extends StatefulWidget {
+  final List<Child> children;
+  const _AssessmentTab({required this.children});
+  @override
+  State<_AssessmentTab> createState() => _AssessmentTabState();
+}
+
+class _AssessmentTabState extends State<_AssessmentTab> {
+  Child? _selectedChild;
+  String _selectedActivity = activityTypes[0];
+  bool _isRecording = false;
+  bool _isAnalyzing = false;
+  Map<String, dynamic>? _result;
+  String _transcription = '';
+  final AudioRecorder _recorder = AudioRecorder();
+  String? _recordingPath;
+  Duration _recordingDuration = Duration.zero;
+
+  @override
+  void dispose() { _recorder.dispose(); super.dispose(); }
+
+  Future<void> _startRecording() async {
+    final micPerm = await Permission.microphone.request();
+    if (!micPerm.isGranted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Microphone permission required')));
+      return;
+    }
+    final dir = await getTemporaryDirectory();
+    _recordingPath = '${dir.path}/assessment_${DateTime.now().millisecondsSinceEpoch}.m4a';
+    await _recorder.start(const RecordConfig(), path: _recordingPath!);
+    setState(() { _isRecording = true; _result = null; _recordingDuration = Duration.zero; });
+    _tickTimer();
+  }
+
+  void _tickTimer() async {
+    await Future.delayed(const Duration(seconds: 1));
+    if (_isRecording && mounted) { setState(() => _recordingDuration += const Duration(seconds: 1)); _tickTimer(); }
+  }
+
+  Future<void> _stopAndAnalyze() async {
+    await _recorder.stop();
+    setState(() { _isRecording = false; _isAnalyzing = true; });
+    try {
+      final file = File(_recordingPath!);
+      final result = await ApiService.uploadAudio(file, _selectedChild!.id, _selectedActivity);
+      setState(() { _result = result; _transcription = result['transcription'] ?? ''; _isAnalyzing = false; });
+    } catch (e) {
+      setState(() => _isAnalyzing = false);
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const SectionTitle('New Assessment'),
+        Card(child: Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('Select Child', style: TextStyle(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          DropdownButtonFormField<Child>(value: _selectedChild, hint: const Text('Choose your child'), items: widget.children.map((c) => DropdownMenuItem(value: c, child: Text('${c.name} (${c.age} yrs)'))).toList(), onChanged: (c) => setState(() => _selectedChild = c), decoration: const InputDecoration(prefixIcon: Icon(Icons.child_care))),
+        ]))),
 // CHILD CARD WITH SOLUTIONS BUTTON  (NEW)
 // Wraps the existing ChildCard and adds a Solutions shortcut.
 // ─────────────────────────────────────────────────────────────
 class _ChildCardWithSolutions extends StatelessWidget {
   final Child child;
   final VoidCallback onViewSolutions;
+  final VoidCallback onRefresh;
 
   const _ChildCardWithSolutions({
     required this.child,
     required this.onViewSolutions,
+    required this.onRefresh,
   });
 
   @override
@@ -450,6 +453,19 @@ class _ChildCardWithSolutions extends StatelessWidget {
                   score: child.assessments.last.correctedScore ??
                       child.assessments.last.autismScore,
                 ),
+              PopupMenuButton<String>(
+                onSelected: (value) async {
+                  if (value == 'edit') {
+                    _showEditChildDialog(context, child);
+                  } else if (value == 'delete') {
+                    _confirmDeleteChild(context, child);
+                  }
+                },
+                itemBuilder: (_) => [
+                  const PopupMenuItem(value: 'edit', child: Text('Edit')),
+                  const PopupMenuItem(value: 'delete', child: Text('Delete', style: TextStyle(color: AppTheme.danger))),
+                ],
+              ),
             ]),
           ),
 
@@ -485,74 +501,58 @@ class _ChildCardWithSolutions extends StatelessWidget {
       ),
     );
   }
-}
 
-// ─────────────────────────────────────────────────────────────
-// ASSESSMENT TAB  (unchanged from original)
-// ─────────────────────────────────────────────────────────────
-class _AssessmentTab extends StatefulWidget {
-  final List<Child> children;
-  const _AssessmentTab({required this.children});
-  @override
-  State<_AssessmentTab> createState() => _AssessmentTabState();
-}
-
-class _AssessmentTabState extends State<_AssessmentTab> {
-  Child?   _selectedChild;
-  String   _selectedActivity = activityTypes[0];
-  bool     _isRecording  = false;
-  bool     _isAnalyzing  = false;
-  Map<String, dynamic>? _result;
-  String   _transcription = '';
-  final AudioRecorder _recorder = AudioRecorder();
-  String?  _recordingPath;
-  Duration _recordingDuration = Duration.zero;
-
-  @override
-  void dispose() {
-    _recorder.dispose();
-    super.dispose();
-  }
-
-  Future<void> _startRecording() async {
-    final micPerm = await Permission.microphone.request();
-    if (!micPerm.isGranted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Microphone permission required')));
-      return;
-    }
-    final dir = await getTemporaryDirectory();
-    _recordingPath =
-    '${dir.path}/assessment_${DateTime.now().millisecondsSinceEpoch}.m4a';
-    await _recorder.start(const RecordConfig(), path: _recordingPath!);
-    setState(() {
-      _isRecording = true;
-      _result = null;
-      _recordingDuration = Duration.zero;
-    });
-    _tickTimer();
-  }
-
-  void _tickTimer() async {
-    await Future.delayed(const Duration(seconds: 1));
-    if (_isRecording && mounted) {
-      setState(() => _recordingDuration += const Duration(seconds: 1));
-      _tickTimer();
-    }
-  }
-
-  Future<void> _stopAndAnalyze() async {
-    await _recorder.stop();
-    setState(() { _isRecording = false; _isAnalyzing = true; });
-    try {
-      final file   = File(_recordingPath!);
-      final result = await ApiService.uploadAudio(
-          file, _selectedChild!.id, _selectedActivity);
-      setState(() {
-        _result         = result;
-        _transcription  = result['transcription'] ?? '';
-        _isAnalyzing    = false;
-      });
+  void _showEditChildDialog(BuildContext context, Child child) {
+    final nameCtrl = TextEditingController(text: child.name);
+    final dobCtrl = TextEditingController(text: DateFormat('yyyy-MM-dd').format(child.dateOfBirth));
+    String gender = child.gender;
+    showDialog(
+      context: context,
+      builder: (_) => StatefulBuilder(
+        builder: (ctx, setS) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('Edit Child Profile'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameCtrl,
+                decoration: const InputDecoration(labelText: "Child's Name"),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: dobCtrl,
+                decoration: const InputDecoration(
+                    labelText: 'Date of Birth',
+                    suffixIcon: Icon(Icons.calendar_today)),
+                onTap: () async {
+                  final date = await showDatePicker(
+                    context: ctx,
+                    initialDate: child.dateOfBirth,
+                    firstDate: DateTime(2000),
+                    lastDate: DateTime.now(),
+                  );
+                  if (date != null) {
+                    dobCtrl.text = DateFormat('yyyy-MM-dd').format(date);
+                  }
+                },
+                readOnly: true,
+              ),
+              const SizedBox(height: 12),
+              Row(children: [
+                const Text('Gender: '),
+                ChoiceChip(
+                  label: const Text('Male'),
+                  selected: gender == 'male',
+                  onSelected: (_) => setS(() => gender = 'male'),
+                ),
+                const SizedBox(width: 8),
+                ChoiceChip(
+                  label: const Text('Female'),
+                  selected: gender == 'female',
+                  onSelected: (_) => setS(() => gender = 'female'),
+                ),
+              ]),
     } catch (e) {
       setState(() => _isAnalyzing = false);
       if (mounted) {

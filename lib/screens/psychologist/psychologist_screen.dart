@@ -544,24 +544,200 @@ class _MessagesTab extends StatefulWidget {
 }
 
 class _MessagesTabState extends State<_MessagesTab> {
-  final _msgCtrl = TextEditingController();
   List<dynamic> _conversations = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadConversations();
+  }
+
+  Future<void> _loadConversations() async {
+    final data = await ApiService.getConversations();
+    if (mounted) {
+      setState(() {
+        _conversations = data;
+        _loading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_conversations.isEmpty) {
+      return const EmptyState(
+        icon: Icons.chat_bubble_outline,
+        message: 'No conversations yet. Contact parents directly after reviewing assessments.',
+      );
+    }
+    return RefreshIndicator(
+      onRefresh: _loadConversations,
+      child: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: _conversations.length,
+        itemBuilder: (_, i) {
+          final c = _conversations[i];
+          final lastMsg = c['last_message'] ?? {};
+          final unread = c['unread_count'] ?? 0;
+          return Card(
+            margin: const EdgeInsets.only(bottom: 10),
+            child: ListTile(
+              leading: CircleAvatar(
+                backgroundColor: AppTheme.primary.withOpacity(0.1),
+                child: Text(
+                  (c['other_user_name'] ?? '?')[0],
+                  style: const TextStyle(
+                      color: AppTheme.primary, fontWeight: FontWeight.bold),
+                ),
+              ),
+              title: Text(c['other_user_name'] ?? 'Unknown'),
+              subtitle: Text(
+                lastMsg['content'] ?? 'No messages yet',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              trailing: unread > 0
+                  ? Container(
+                padding: const EdgeInsets.all(6),
+                decoration: const BoxDecoration(
+                    color: AppTheme.danger, shape: BoxShape.circle),
+                child: Text('$unread',
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold)),
+              )
+                  : null,
+              onTap: () => _openConversation(c['id'].toString(), c['other_user_name'] ?? ''),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  void _openConversation(String conversationId, String otherUserName) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => _ConversationDetailScreen(
+          conversationId: conversationId,
+          otherUserName: otherUserName,
+        ),
+      ),
+    );
+  }
+}
+
+class _ConversationDetailScreen extends StatefulWidget {
+  final String conversationId;
+  final String otherUserName;
+  const _ConversationDetailScreen({
+    required this.conversationId,
+    required this.otherUserName,
+  });
+
+  @override
+  State<_ConversationDetailScreen> createState() => _ConversationDetailScreenState();
+}
+
+class _ConversationDetailScreenState extends State<_ConversationDetailScreen> {
+  final _msgCtrl = TextEditingController();
+  List<dynamic> _messages = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMessages();
+  }
+
+  Future<void> _loadMessages() async {
+    final data = await ApiService.getMessages(widget.conversationId);
+    if (mounted) {
+      setState(() {
+        _messages = data;
+        _loading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _conversations.isEmpty
-          ? const EmptyState(
-          icon: Icons.chat_bubble_outline,
-          message: 'No conversations yet.\nContact parents directly after reviewing assessments.')
-          : ListView.builder(
-          itemCount: _conversations.length,
-          itemBuilder: (_, i) => ListTile(
-            leading: const CircleAvatar(child: Icon(Icons.person)),
-            title: Text(_conversations[i]['name'] ?? ''),
-            subtitle: Text(_conversations[i]['last_message'] ?? ''),
-            onTap: () {},
-          )),
+      appBar: AppBar(
+        title: Text(widget.otherUserName),
+        backgroundColor: const Color(0xFFF0FFF4),
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator())
+                : ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: _messages.length,
+              itemBuilder: (_, i) {
+                final m = _messages[i];
+                final isMe = m['sender']?.toString() ==
+                    context.read<AuthService>().currentUser?.id;
+                return Align(
+                  alignment: isMe
+                      ? Alignment.centerRight
+                      : Alignment.centerLeft,
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: isMe
+                          ? AppTheme.primary
+                          : Colors.grey.shade200,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Text(
+                      m['content'] ?? '',
+                      style: TextStyle(
+                          color:
+                          isMe ? Colors.white : AppTheme.textPrimary),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _msgCtrl,
+                    decoration: const InputDecoration(
+                      hintText: 'Type a message...',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: const Icon(Icons.send, color: AppTheme.primary),
+                  onPressed: () async {
+                    if (_msgCtrl.text.trim().isEmpty) return;
+                    _msgCtrl.clear();
+                    await _loadMessages();
+                  },
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
+

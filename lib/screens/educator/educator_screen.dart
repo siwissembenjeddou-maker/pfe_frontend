@@ -45,35 +45,27 @@ class _EducatorScreenState extends State<EducatorScreen> {
     final user = context.watch<AuthService>().currentUser;
     final pages = [
       _EducatorDashboard(children: _children, schedules: _schedules),
-      _ScheduleTab(schedules: _schedules, onRefresh: _loadData, selectedDay: _selectedDay,
-          onDaySelected: (d) => setState(() => _selectedDay = d)),
+      _ScheduleTab(schedules: _schedules, onRefresh: _loadData, selectedDay: _selectedDay, onDaySelected: (d) => setState(() => _selectedDay = d)),
       _AttendanceTab(children: _children),
       _ReportsTab(children: _children),
     ];
 
     return Scaffold(
       appBar: AppBar(
-        title: Column(
-          children: [
-            const Text('AutoSense', style: TextStyle(fontWeight: FontWeight.bold)),
-            Text('Educator: ${user?.name ?? ''}',
-                style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-          ],
-        ),
+        title: Column(children: [
+          const Text('AutoSense', style: TextStyle(fontWeight: FontWeight.bold)),
+          Text('Educator: ${user?.name ?? ''}', style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+        ]),
         backgroundColor: const Color(0xFFFFF8F0),
         actions: [
           IconButton(icon: const Icon(Icons.refresh), onPressed: _loadData),
-          IconButton(
-              icon: const Icon(Icons.logout),
-              onPressed: () async {
-                await context.read<AuthService>().logout();
-                if (mounted) Navigator.pushReplacementNamed(context, '/login');
-              }),
+          IconButton(icon: const Icon(Icons.logout), onPressed: () async {
+            await context.read<AuthService>().logout();
+            if (mounted) Navigator.pushReplacementNamed(context, '/login');
+          }),
         ],
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : pages[_currentIndex],
+      body: _loading ? const Center(child: CircularProgressIndicator()) : pages[_currentIndex],
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
         onDestinationSelected: (i) => setState(() => _currentIndex = i),
@@ -85,13 +77,7 @@ class _EducatorScreenState extends State<EducatorScreen> {
           NavigationDestination(icon: Icon(Icons.description_outlined), selectedIcon: Icon(Icons.description), label: 'Reports'),
         ],
       ),
-      floatingActionButton: _currentIndex == 1
-          ? FloatingActionButton(
-        onPressed: _showAddScheduleDialog,
-        backgroundColor: AppTheme.warning,
-        child: const Icon(Icons.add),
-      )
-          : null,
+      floatingActionButton: _currentIndex == 1 ? FloatingActionButton(onPressed: _showAddScheduleDialog, backgroundColor: AppTheme.warning, child: const Icon(Icons.add)) : null,
     );
   }
 
@@ -104,74 +90,35 @@ class _EducatorScreenState extends State<EducatorScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (_) => StatefulBuilder(
         builder: (ctx, setS) => Padding(
-          padding: EdgeInsets.fromLTRB(
-              20, 20, 20, MediaQuery.of(ctx).viewInsets.bottom + 20),
+          padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(ctx).viewInsets.bottom + 20),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Add Activity',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const Text('Add Activity', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 16),
-              TextField(
-                controller: titleCtrl,
-                decoration: const InputDecoration(
-                    labelText: 'Activity Title',
-                    prefixIcon: Icon(Icons.title)),
-              ),
+              TextField(controller: titleCtrl, decoration: const InputDecoration(labelText: 'Activity Title', prefixIcon: Icon(Icons.title))),
               const SizedBox(height: 12),
-              TextField(
-                controller: descCtrl,
-                decoration: const InputDecoration(
-                    labelText: 'Description',
-                    prefixIcon: Icon(Icons.description)),
-              ),
+              TextField(controller: descCtrl, decoration: const InputDecoration(labelText: 'Description', prefixIcon: Icon(Icons.description))),
               const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                value: selectedActivity,
-                decoration: const InputDecoration(labelText: 'Activity Type'),
-                items: activityTypes
-                    .map((a) =>
-                    DropdownMenuItem(value: a, child: Text('${activityIcons[a]} $a')))
-                    .toList(),
-                onChanged: (v) => setS(() => selectedActivity = v!),
-              ),
+              DropdownButtonFormField<String>(value: selectedActivity, decoration: const InputDecoration(labelText: 'Activity Type'), items: activityTypes.map((a) => DropdownMenuItem(value: a, child: Text('${activityIcons[a]} $a'))).toList(), onChanged: (v) => setS(() => selectedActivity = v!)),
               const SizedBox(height: 12),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.access_time),
-                title: Text('Time: ${selectedTime.format(ctx)}'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () async {
-                  final t = await showTimePicker(context: ctx, initialTime: selectedTime);
-                  if (t != null) setS(() => selectedTime = t);
+              ListTile(contentPadding: EdgeInsets.zero, leading: const Icon(Icons.access_time), title: Text('Time: ${selectedTime.format(ctx)}'), trailing: const Icon(Icons.chevron_right), onTap: () async {
+                final t = await showTimePicker(context: ctx, initialTime: selectedTime);
+                if (t != null) setS(() => selectedTime = t);
+              }),
+              const SizedBox(height: 16),
+              SizedBox(width: double.infinity, child: ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.warning),
+                onPressed: () async {
+                  await ApiService.createSchedule({'title': titleCtrl.text, 'description': descCtrl.text, 'activity_type': selectedActivity, 'date': DateFormat('yyyy-MM-dd').format(_selectedDay), 'time': selectedTime.format(ctx)});
+                  if (mounted) { Navigator.pop(ctx); _loadData(); }
                 },
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.warning),
-                  onPressed: () async {
-                    await ApiService.createSchedule({
-                      'title': titleCtrl.text,
-                      'description': descCtrl.text,
-                      'activity_type': selectedActivity,
-                      'date': DateFormat('yyyy-MM-dd').format(_selectedDay),
-                      'time': selectedTime.format(ctx),
-                    });
-                    if (mounted) {
-                      Navigator.pop(ctx);
-                      _loadData();
-                    }
-                  },
-                  child: const Text('Add Activity'),
-                ),
-              ),
+                child: const Text('Add Activity'),
+              )),
             ],
           ),
         ),
@@ -195,57 +142,29 @@ class _EducatorDashboard extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        // Welcome
         Container(
           padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-                colors: [Color(0xFFE67E22), Color(0xFFF39C12)]),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Good ${_greeting()}! 👋',
-                        style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold)),
-                    Text('${children.length} children · ${today.length} activities today',
-                        style: const TextStyle(color: Colors.white70)),
-                  ],
-                ),
-              ),
-              const Icon(Icons.school, color: Colors.white, size: 50),
-            ],
-          ),
+          decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFFE67E22), Color(0xFFF39C12)]), borderRadius: BorderRadius.circular(20)),
+          child: Row(children: [
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('Good ${_greeting()}! 👋', style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+              Text('${children.length} children · ${today.length} activities today', style: const TextStyle(color: Colors.white70)),
+            ])),
+            const Icon(Icons.school, color: Colors.white, size: 50),
+          ]),
         ),
         const SizedBox(height: 16),
-
-        // Quick Stats
         Row(children: [
-          Expanded(
-              child: _EduStatCard(
-                  label: 'Students', value: '${children.length}', icon: Icons.people, color: AppTheme.primary)),
+          Expanded(child: _EduStatCard(label: 'Students', value: '${children.length}', icon: Icons.people, color: AppTheme.primary)),
           const SizedBox(width: 12),
-          Expanded(
-              child: _EduStatCard(
-                  label: "Today's Activities", value: '${today.length}', icon: Icons.today, color: AppTheme.warning)),
+          Expanded(child: _EduStatCard(label: "Today's Activities", value: '${today.length}', icon: Icons.today, color: AppTheme.warning)),
           const SizedBox(width: 12),
-          Expanded(
-              child: _EduStatCard(
-                  label: 'This Week', value: '${schedules.length}', icon: Icons.calendar_view_week, color: AppTheme.accent)),
+          Expanded(child: _EduStatCard(label: 'This Week', value: '${schedules.length}', icon: Icons.calendar_view_week, color: AppTheme.accent)),
         ]),
         const SizedBox(height: 20),
-
         const SectionTitle("Today's Schedule"),
-        if (today.isEmpty)
-          const EmptyState(icon: Icons.calendar_today, message: 'No activities scheduled for today'),
+        if (today.isEmpty) const EmptyState(icon: Icons.calendar_today, message: 'No activities scheduled for today'),
         ...today.map((s) => _ScheduleCard(schedule: s)),
-
         const SizedBox(height: 12),
         const SectionTitle('Student Overview'),
         ...children.map((c) => ChildCard(child: c)),
@@ -266,23 +185,13 @@ class _EduStatCard extends StatelessWidget {
   final IconData icon;
   final Color color;
   const _EduStatCard({required this.label, required this.value, required this.icon, required this.color});
-
   @override
   Widget build(BuildContext context) => Card(
-    child: Padding(
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        children: [
-          Icon(icon, color: color, size: 26),
-          const SizedBox(height: 4),
-          Text(value,
-              style: TextStyle(color: color, fontSize: 20, fontWeight: FontWeight.bold)),
-          Text(label,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 10, color: AppTheme.textSecondary)),
-        ],
-      ),
-    ),
+    child: Padding(padding: const EdgeInsets.all(12), child: Column(children: [
+      Icon(icon, color: color, size: 26), const SizedBox(height: 4),
+      Text(value, style: TextStyle(color: color, fontSize: 20, fontWeight: FontWeight.bold)),
+      Text(label, textAlign: TextAlign.center, style: const TextStyle(fontSize: 10, color: AppTheme.textSecondary)),
+    ])),
   );
 }
 
@@ -291,9 +200,7 @@ class _ScheduleTab extends StatelessWidget {
   final VoidCallback onRefresh;
   final DateTime selectedDay;
   final Function(DateTime) onDaySelected;
-  const _ScheduleTab(
-      {required this.schedules, required this.onRefresh,
-        required this.selectedDay, required this.onDaySelected});
+  const _ScheduleTab({required this.schedules, required this.onRefresh, required this.selectedDay, required this.onDaySelected});
 
   @override
   Widget build(BuildContext context) {
@@ -302,63 +209,38 @@ class _ScheduleTab extends StatelessWidget {
       return d != null && isSameDay(d, selectedDay);
     }).toList();
 
-    return Column(
-      children: [
-        TableCalendar(
-          firstDay: DateTime(2024),
-          lastDay: DateTime(2027),
-          focusedDay: selectedDay,
-          selectedDayPredicate: (d) => isSameDay(d, selectedDay),
-          onDaySelected: (selected, _) => onDaySelected(selected),
-          calendarStyle: const CalendarStyle(
-            selectedDecoration: BoxDecoration(
-                color: AppTheme.warning, shape: BoxShape.circle),
-            todayDecoration: BoxDecoration(
-                color: AppTheme.primary, shape: BoxShape.circle),
-          ),
-          headerStyle: const HeaderStyle(formatButtonVisible: false, titleCentered: true),
-        ),
-        const Divider(),
-        Expanded(
-          child: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              SectionTitle(
-                  DateFormat('EEEE, MMM dd').format(selectedDay)),
-              if (daySchedules.isEmpty)
-                const EmptyState(icon: Icons.event_available, message: 'No activities for this day.\nTap + to add one.'),
-              ...daySchedules.map((s) => _ScheduleCard(schedule: s)),
-            ],
-          ),
-        ),
-      ],
-    );
+    return Column(children: [
+      TableCalendar(
+        firstDay: DateTime(2024), lastDay: DateTime(2027), focusedDay: selectedDay,
+        selectedDayPredicate: (d) => isSameDay(d, selectedDay), onDaySelected: (selected, _) => onDaySelected(selected),
+        calendarStyle: const CalendarStyle(selectedDecoration: BoxDecoration(color: AppTheme.warning, shape: BoxShape.circle), todayDecoration: BoxDecoration(color: AppTheme.primary, shape: BoxShape.circle)),
+        headerStyle: const HeaderStyle(formatButtonVisible: false, titleCentered: true),
+      ),
+      const Divider(),
+      Expanded(child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          SectionTitle(DateFormat('EEEE, MMM dd').format(selectedDay)),
+          if (daySchedules.isEmpty) const EmptyState(icon: Icons.event_available, message: 'No activities for this day.\nTap + to add one.'),
+          ...daySchedules.map((s) => _ScheduleCard(schedule: s)),
+        ],
+      )),
+    ]);
   }
 }
 
 class _ScheduleCard extends StatelessWidget {
   final dynamic schedule;
   const _ScheduleCard({required this.schedule});
-
   @override
   Widget build(BuildContext context) {
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
       child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: AppTheme.warning.withOpacity(0.1),
-          child: Text(activityIcons[schedule['activity_type']] ?? '📋',
-              style: const TextStyle(fontSize: 22)),
-        ),
+        leading: CircleAvatar(backgroundColor: AppTheme.warning.withOpacity(0.1), child: Text(activityIcons[schedule['activity_type']] ?? '📋', style: const TextStyle(fontSize: 22))),
         title: Text(schedule['title'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold)),
         subtitle: Text(schedule['description'] ?? ''),
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(schedule['time'] ?? '',
-                style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.warning)),
-          ],
-        ),
+        trailing: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Text(schedule['time'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.warning))]),
       ),
     );
   }
@@ -372,30 +254,23 @@ class _AttendanceTab extends StatefulWidget {
 }
 
 class _AttendanceTabState extends State<_AttendanceTab> {
-  final Map<String, String> _attendance = {}; // childId → 'present'|'absent'|'late'
+  final Map<String, String> _attendance = {};
+  bool _saving = false;
 
   @override
   Widget build(BuildContext context) {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Row(
-          children: [
-            const Expanded(
-                child: SectionTitle('Today\'s Attendance')),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.save, size: 16),
-              label: const Text('Save'),
-              style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.warning,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Attendance saved!')));
-              },
-            ),
-          ],
-        ),
+        Row(children: [
+          const Expanded(child: SectionTitle('Today\'s Attendance')),
+          ElevatedButton.icon(
+            icon: _saving ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.save, size: 16),
+            label: Text(_saving ? 'Saving…' : 'Save'),
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.warning, padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
+            onPressed: _saving ? null : _saveAttendance,
+          ),
+        ]),
         const SizedBox(height: 8),
         ...widget.children.map((child) {
           final status = _attendance[child.id] ?? 'present';
@@ -403,51 +278,54 @@ class _AttendanceTabState extends State<_AttendanceTab> {
             margin: const EdgeInsets.only(bottom: 8),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    backgroundColor: AppTheme.primary.withOpacity(0.1),
-                    child: Text(child.name[0],
-                        style: const TextStyle(
-                            color: AppTheme.primary, fontWeight: FontWeight.bold)),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(child.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                          Text('${child.age} years · ${child.gender}',
-                              style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-                        ],
-                      )),
-                  SegmentedButton<String>(
-                    segments: const [
-                      ButtonSegment(value: 'present', icon: Icon(Icons.check, size: 14), label: Text('P', style: TextStyle(fontSize: 11))),
-                      ButtonSegment(value: 'late', icon: Icon(Icons.schedule, size: 14), label: Text('L', style: TextStyle(fontSize: 11))),
-                      ButtonSegment(value: 'absent', icon: Icon(Icons.close, size: 14), label: Text('A', style: TextStyle(fontSize: 11))),
-                    ],
-                    selected: {status},
-                    onSelectionChanged: (s) =>
-                        setState(() => _attendance[child.id] = s.first),
-                    style: ButtonStyle(
-                      backgroundColor: WidgetStateProperty.resolveWith((states) {
-                        if (states.contains(WidgetState.selected)) {
-                          if (status == 'present') return AppTheme.accent.withOpacity(0.2);
-                          if (status == 'late') return AppTheme.warning.withOpacity(0.2);
-                          return AppTheme.danger.withOpacity(0.2);
-                        }
-                        return null;
-                      }),
-                    ),
-                  ),
-                ],
-              ),
+              child: Row(children: [
+                CircleAvatar(backgroundColor: AppTheme.primary.withOpacity(0.1), child: Text(child.name[0], style: const TextStyle(color: AppTheme.primary, fontWeight: FontWeight.bold))),
+                const SizedBox(width: 12),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(child.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  Text('${child.age} years · ${child.gender}', style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                ])),
+                SegmentedButton<String>(
+                  segments: const [
+                    ButtonSegment(value: 'present', icon: Icon(Icons.check, size: 14), label: Text('P', style: TextStyle(fontSize: 11))),
+                    ButtonSegment(value: 'late', icon: Icon(Icons.schedule, size: 14), label: Text('L', style: TextStyle(fontSize: 11))),
+                    ButtonSegment(value: 'absent', icon: Icon(Icons.close, size: 14), label: Text('A', style: TextStyle(fontSize: 11))),
+                  ],
+                  selected: {status},
+                  onSelectionChanged: (s) => setState(() => _attendance[child.id] = s.first),
+                  style: ButtonStyle(backgroundColor: WidgetStateProperty.resolveWith((states) {
+                    if (states.contains(WidgetState.selected)) {
+                      if (status == 'present') return AppTheme.accent.withOpacity(0.2);
+                      if (status == 'late') return AppTheme.warning.withOpacity(0.2);
+                      return AppTheme.danger.withOpacity(0.2);
+                    }
+                    return null;
+                  })),
+                ),
+              ]),
             ),
           );
         }).toList(),
       ],
     );
+  }
+
+  Future<void> _saveAttendance() async {
+    setState(() => _saving = true);
+    try {
+      for (final entry in _attendance.entries) {
+        await ApiService.saveAttendance({
+          'child': entry.key,
+          'date': DateFormat('yyyy-MM-dd').format(DateTime.now()),
+          'status': entry.value,
+        });
+      }
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Attendance saved!')));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error saving attendance: $e')));
+    } finally {
+      setState(() => _saving = false);
+    }
   }
 }
 
@@ -477,58 +355,52 @@ class _ChildReportCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       child: Padding(
         padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                CircleAvatar(
-                  backgroundColor: AppTheme.warning.withOpacity(0.1),
-                  radius: 22,
-                  child: Text(child.name[0],
-                      style: const TextStyle(
-                          color: AppTheme.warning,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 18)),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(child.name,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                      Text('${child.age} years · ${child.assessments.length} assessments',
-                          style: const TextStyle(
-                              color: AppTheme.textSecondary, fontSize: 12)),
-                    ],
-                  ),
-                ),
-                ElevatedButton(
-                  onPressed: () {},
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.warning,
-                    padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  ),
-                  child: const Text('View Report', style: TextStyle(fontSize: 12)),
-                ),
-              ],
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            CircleAvatar(backgroundColor: AppTheme.warning.withOpacity(0.1), radius: 22, child: Text(child.name[0], style: const TextStyle(color: AppTheme.warning, fontWeight: FontWeight.bold, fontSize: 18))),
+            const SizedBox(width: 12),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(child.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              Text('${child.age} years · ${child.assessments.length} assessments', style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
+            ])),
+            ElevatedButton(
+              onPressed: () => _viewReport(context, child.id),
+              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.warning, padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6)),
+              child: const Text('View Report', style: TextStyle(fontSize: 12)),
             ),
-            if (child.assessments.isNotEmpty) ...[
-              const Divider(height: 20),
-              Text('Latest: ${child.assessments.last.activityType}',
-                  style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
-              Row(
-                children: [
-                  ScoreBadge(score: child.assessments.last.autismScore),
-                  const SizedBox(width: 8),
-                  SeverityBadge(severity: child.assessments.last.severityLevel),
-                ],
-              ),
-            ],
+          ]),
+          if (child.assessments.isNotEmpty) ...[
+            const Divider(height: 20),
+            Text('Latest: ${child.assessments.last.activityType}', style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
+            Row(children: [
+              ScoreBadge(score: child.assessments.last.autismScore),
+              const SizedBox(width: 8),
+              SeverityBadge(severity: child.assessments.last.severityLevel),
+            ]),
           ],
-        ),
+        ]),
+      ),
+    );
+  }
+
+  void _viewReport(BuildContext context, String childId) async {
+    final report = await ApiService.getChildReport(childId);
+    if (!context.mounted) return;
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text('Report: ${report['child_name'] ?? ''}'),
+        content: SingleChildScrollView(child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+          Text('Current Score: ${report['current_score']?.toStringAsFixed(2) ?? 'N/A'}'),
+          Text('Severity: ${report['current_severity'] ?? 'N/A'}'),
+          Text('Total Assessments: ${report['total_assessments'] ?? 0}'),
+          const SizedBox(height: 12),
+          if ((report['trend'] as List?)?.isNotEmpty == true) ...[
+            const Text('Trend:', style: TextStyle(fontWeight: FontWeight.bold)),
+            ...(report['trend'] as List).map((t) => Text('${t['date']}: ${t['score']} (${t['activity']})')).toList(),
+          ],
+        ])),
+        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close'))],
       ),
     );
   }
