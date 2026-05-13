@@ -1,12 +1,20 @@
-// lib/services/api_service.dart
+// ignore_for_file: avoid_print
+
 import 'dart:io';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
-  static const String baseUrl = 'http://10.0.2.2:8000'; // Android emulator → localhost
-  // Use 'http://YOUR_PC_IP:8000' for physical device
+  // Auto-detect: Android emulator → 10.0.2.2, otherwise → 127.0.0.1
+  // For physical device on same network, replace with your PC's IP (run `ipconfig`)
+  static String get baseUrl {
+    if (Platform.isAndroid) {
+      return 'http://10.0.2.2:8000';
+    }
+    return 'http://127.0.0.1:8000';
+  }
 
   static Future<String?> _getToken() async {
     final prefs = await SharedPreferences.getInstance();
@@ -17,21 +25,58 @@ class ApiService {
     final token = await _getToken();
     return {
       'Content-Type': 'application/json',
-      if (token != null) 'Authorization': 'Bearer $token',
+      if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
     };
   }
 
-  // ─── AUTH ──────────────────────────────────────────────
+  // AUTH
   static Future<Map<String, dynamic>> login(
       String email, String password, String role) async {
     try {
-      final res = await http.post(
+      final res = await http
+          .post(
         Uri.parse('$baseUrl/auth/login'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'email': email, 'password': password, 'role': role}),
+      )
+          .timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          throw Exception('Server is not responding. Check your backend.');
+        },
       );
       final data = jsonDecode(res.body);
       return {'success': res.statusCode == 200, ...data};
+    } catch (e) {
+      return {'success': false, 'message': 'Connection error: $e'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> register(
+      {required String name,
+      required String email,
+      required String password,
+      required String role}) async {
+    try {
+      final res = await http
+          .post(
+        Uri.parse('$baseUrl/auth/register'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'name': name,
+          'email': email,
+          'password': password,
+          'role': role,
+        }),
+      )
+          .timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          throw Exception('Server is not responding. Check your backend.');
+        },
+      );
+      final data = jsonDecode(res.body);
+      return {'success': res.statusCode == 201, ...data};
     } catch (e) {
       return {'success': false, 'message': 'Connection error: $e'};
     }
@@ -49,266 +94,457 @@ class ApiService {
     return {};
   }
 
-  // ─── CHILDREN ──────────────────────────────────────────
+  // CHILDREN
   static Future<List<dynamic>> getChildren({String? parentId}) async {
     final headers = await _headers();
     final query = parentId != null ? '?parent_id=$parentId' : '';
-    final res =
-    await http.get(Uri.parse('$baseUrl/children$query'), headers: headers);
-    if (res.statusCode == 200) return jsonDecode(res.body);
-    return [];
+    final response = await http
+        .get(
+          Uri.parse('$baseUrl/children$query'),
+          headers: headers,
+        )
+        .timeout(const Duration(seconds: 10));
+
+    if (response.statusCode == 200) {
+      final decoded = jsonDecode(response.body);
+      if (decoded is List) return decoded;
+
+      final Map<String, dynamic> data = decoded as Map<String, dynamic>;
+      final dynamic rawChildren =
+          data['results'] ?? data['data'] ?? data['items'];
+      if (rawChildren is List) return rawChildren;
+      return [];
+    } else {
+      debugPrint('getChildren failed: ${response.statusCode} ${response.body}');
+      return [];
+    }
   }
 
   static Future<Map<String, dynamic>> addChild(
-      Map<String, dynamic> data) async {
+      Map<String, dynamic> childData) async {
     final headers = await _headers();
-    final res = await http.post(
-      Uri.parse('$baseUrl/children'),
-      headers: headers,
-      body: jsonEncode(data),
-    );
-    return jsonDecode(res.body);
+
+    final response = await http
+        .post(
+          Uri.parse('$baseUrl/children/'),
+          headers: headers,
+          body: jsonEncode(childData),
+        )
+        .timeout(const Duration(seconds: 10));
+
+    if (response.statusCode == 201 || response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to add child: ${response.body}');
+    }
   }
 
   static Future<Map<String, dynamic>> updateChild(
-      String childId, Map<String, dynamic> data) async {
+      Object childId, Map<String, dynamic> data) async {
     final headers = await _headers();
-    final res = await http.put(
-      Uri.parse('$baseUrl/children/$childId'),
-      headers: headers,
-      body: jsonEncode(data),
-    );
+    final id = childId.toString();
+    final res = await http.put(Uri.parse('$baseUrl/children/$id'),
+        headers: headers, body: jsonEncode(data));
     return jsonDecode(res.body);
   }
 
-  static Future<void> deleteChild(String childId) async {
+  static Future<void> deleteChild(Object childId) async {
     final headers = await _headers();
-    await http.delete(Uri.parse('$baseUrl/children/$childId'), headers: headers);
+    final id = childId.toString();
+    final res =
+        await http.delete(Uri.parse('$baseUrl/children/$id'), headers: headers);
+    if (res.statusCode != 200 && res.statusCode != 204) {
+      throw Exception('Failed to delete child: ${res.statusCode} ${res.body}');
+    }
   }
 
-  // ─── ASSESSMENTS ───────────────────────────────────────
+  // ASSESSMENTS
   static Future<Map<String, dynamic>> uploadAudio(
-      File audioFile, String childId, String activityType) async {
-    final token = await _getToken();
+      File audioFile, Object childId, String activityType) async {
+    final headers = await _headers();
     final request = http.MultipartRequest(
-      'POST',
-      Uri.parse('$baseUrl/assessments/analyze'),
-    );
-    request.headers['Authorization'] = 'Bearer $token';
-    request.fields['child_id'] = childId;
+        'POST', Uri.parse('$baseUrl/assessments/analyze'));
+    request.fields['child_id'] = childId.toString();
     request.fields['activity_type'] = activityType;
     request.files
         .add(await http.MultipartFile.fromPath('audio', audioFile.path));
+    // Multipart: add auth, skip Content-Type
+    if (headers.containsKey('Authorization')) {
+      request.headers['Authorization'] = headers['Authorization']!;
+    }
 
     final streamedRes = await request.send();
     final res = await http.Response.fromStream(streamedRes);
-    return jsonDecode(res.body);
+
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      final body = res.body.trim();
+      if (body.startsWith('<')) {
+        throw Exception(
+            'Server returned an HTML response instead of JSON. Please check the backend endpoint and CORS configuration. Status: ${res.statusCode}.');
+      }
+      throw Exception(
+          'Upload failed with status ${res.statusCode}: ${body.isEmpty ? 'Empty response' : body}');
+    }
+
+    try {
+      final decoded = jsonDecode(res.body);
+      if (decoded is Map<String, dynamic>) return decoded;
+      throw Exception('Unexpected response format from server.');
+    } catch (e) {
+      throw Exception(
+          'Invalid JSON received from server: ${e.toString()}. Response body: ${res.body.length > 200 ? '${res.body.substring(0, 200)}...' : res.body}');
+    }
   }
 
   static Future<Map<String, dynamic>> analyzeText(
-      String text, String childId, String activityType) async {
+      String text, Object childId, String activityType) async {
     final headers = await _headers();
-    final res = await http.post(
-      Uri.parse('$baseUrl/assessments/analyze-text'),
-      headers: headers,
-      body: jsonEncode({
-        'text': text,
-        'child_id': childId,
-        'activity_type': activityType,
-      }),
-    );
-    return jsonDecode(res.body);
+    final res = await http.post(Uri.parse('$baseUrl/assessments/analyze-text'),
+        headers: headers,
+        body: jsonEncode({
+          'text': text,
+          'child_id': childId.toString(),
+          'activity_type': activityType,
+        }));
+    if (res.statusCode == 200 || res.statusCode == 201) {
+      return jsonDecode(res.body);
+    }
+    return {'error': 'Failed to analyze text', 'status_code': res.statusCode};
   }
 
-  static Future<List<dynamic>> getAssessments({
-    String? childId,
-    String? status,
-  }) async {
+  static Future<List<dynamic>> getAssessments(
+      {Object? childId, String? status}) async {
     final headers = await _headers();
     final params = <String, String>{};
-    if (childId != null) params['child_id'] = childId;
+    if (childId != null) params['child_id'] = childId.toString();
     if (status != null) params['status'] = status;
-    final uri = Uri.parse('$baseUrl/assessments').replace(queryParameters: params);
+    final uri =
+        Uri.parse('$baseUrl/assessments').replace(queryParameters: params);
     final res = await http.get(uri, headers: headers);
-    if (res.statusCode == 200) return jsonDecode(res.body);
+    if (res.statusCode == 200) {
+      final data = jsonDecode(res.body);
+      if (data is List) return data;
+      if (data is Map) {
+        // Support paginated {results: []} and flat {assessments: []}
+        for (final key in ['results', 'assessments', 'data', 'items']) {
+          final v = data[key];
+          if (v is List) return v;
+        }
+      }
+      return [];
+    }
+    // Log error and return empty (caller handles gracefully)
+    debugPrint('getAssessments failed: ${res.statusCode} ${res.body}');
     return [];
   }
 
-  static Future<Map<String, dynamic>> reviewAssessment(
-      String assessmentId, {
-        required String status,
-        String? note,
-        double? correctedScore,
-      }) async {
+  static Future<Map<String, dynamic>> reviewAssessment(Object assessmentId,
+      {required String status, String? note, double? correctedScore}) async {
     final headers = await _headers();
     final res = await http.patch(
-      Uri.parse('$baseUrl/assessments/$assessmentId/review'),
-      headers: headers,
-      body: jsonEncode({
-        'status': status,
-        if (note != null) 'note': note,
-        if (correctedScore != null) 'corrected_score': correctedScore,
-      }),
-    );
-    return jsonDecode(res.body);
+        Uri.parse('$baseUrl/assessments/${assessmentId.toString()}/review'),
+        headers: headers,
+        body: jsonEncode({
+          'status': status,
+          if (note != null) 'note': note,
+          if (correctedScore != null) 'corrected_score': correctedScore,
+        }));
+    if (res.statusCode >= 200 && res.statusCode < 300) {
+      return jsonDecode(res.body);
+    }
+    // Return error info so caller can show meaningful message
+    try {
+      final err = jsonDecode(res.body);
+      return {'error': err['error'] ?? 'Server error (${res.statusCode})'};
+    } catch (_) {
+      return {'error': 'Server error (${res.statusCode})'};
+    }
   }
 
-  // ─── NOTIFICATIONS ─────────────────────────────────────
+  static Future<void> deleteAssessment(Object assessmentId) async {
+    final headers = await _headers();
+    final id = assessmentId.toString();
+    final res = await http.delete(
+      Uri.parse('$baseUrl/assessments/$id'),
+      headers: headers,
+    );
+    if (res.statusCode != 200 && res.statusCode != 204) {
+      throw Exception(
+          'Failed to delete assessment: ${res.statusCode} ${res.body}');
+    }
+  }
+
+  // NOTIFICATIONS
   static Future<List<dynamic>> getNotifications() async {
     final headers = await _headers();
-    final res = await http.get(
-        Uri.parse('$baseUrl/notifications'), headers: headers);
-    if (res.statusCode == 200) return jsonDecode(res.body);
+    final res =
+        await http.get(Uri.parse('$baseUrl/notifications'), headers: headers);
+    if (res.statusCode == 200) {
+      final decoded = jsonDecode(res.body);
+      if (decoded is List) return decoded;
+      if (decoded is Map) {
+        final v = decoded['results'] ??
+            decoded['data'] ??
+            decoded['items'];
+        if (v is List) return v;
+      }
+      return [];
+    }
     return [];
   }
 
-  static Future<void> sendNotification({
-    required String recipientId,
-    required String title,
-    required String message,
-    required String type,
-  }) async {
+  static Future<bool> sendNotification(
+      {required String recipientId,
+      required String title,
+      required String message,
+      required String type}) async {
     final headers = await _headers();
-    await http.post(
-      Uri.parse('$baseUrl/notifications/send'),
-      headers: headers,
-      body: jsonEncode({
-        'recipient_id': recipientId,
-        'title': title,
-        'message': message,
-        'type': type,
-      }),
-    );
+    final res = await http.post(Uri.parse('$baseUrl/notifications/send'),
+        headers: headers,
+        body: jsonEncode({
+          'recipient_id': recipientId,
+          'title': title,
+          'message': message,
+          'type': type,
+        }));
+    return res.statusCode == 200 || res.statusCode == 201;
   }
 
-  static Future<void> markNotificationRead(String id) async {
+  static Future<void> markNotificationRead(Object id) async {
     final headers = await _headers();
-    await http.patch(
-        Uri.parse('$baseUrl/notifications/$id/read'), headers: headers);
+    final res = await http.patch(
+        Uri.parse('$baseUrl/notifications/${id.toString()}/read'),
+        headers: headers);
+    if (res.statusCode != 200 && res.statusCode != 204) {
+      throw Exception(
+          'Failed to mark notification read: ${res.statusCode} ${res.body}');
+    }
   }
 
-  // ─── MESSAGES ──────────────────────────────────────────
+  // MESSAGES
   static Future<List<dynamic>> getConversations() async {
     final headers = await _headers();
     final res = await http.get(
-        Uri.parse('$baseUrl/messages/conversations'), headers: headers);
-    if (res.statusCode == 200) return jsonDecode(res.body);
+      Uri.parse('$baseUrl/messages/conversations/'),
+      headers: headers,
+    );
+
+    if (res.statusCode != 200) return [];
+
+    final decoded = jsonDecode(res.body);
+    if (decoded is List) return decoded;
+
+    if (decoded is Map<String, dynamic>) {
+      final v = decoded['conversations'] ??
+          decoded['results'] ??
+          decoded['data'] ??
+          decoded['items'];
+      if (v is List) return v;
+    }
+
     return [];
   }
 
-  static Future<List<dynamic>> getMessages(String conversationId) async {
+  static Future<List<dynamic>> getMessages(Object conversationId) async {
     final headers = await _headers();
     final res = await http.get(
-        Uri.parse('$baseUrl/messages/$conversationId'), headers: headers);
-    if (res.statusCode == 200) return jsonDecode(res.body);
+      Uri.parse('$baseUrl/messages/${conversationId.toString()}/'),
+      headers: headers,
+    );
+
+    if (res.statusCode != 200) return [];
+
+    final decoded = jsonDecode(res.body);
+    if (decoded is List) return decoded;
+
+    if (decoded is Map<String, dynamic>) {
+      final v = decoded['messages'] ??
+          decoded['results'] ??
+          decoded['data'] ??
+          decoded['items'];
+      if (v is List) return v;
+    }
+
     return [];
   }
 
-  static Future<Map<String, dynamic>> sendMessage({
-    required String recipientId,
-    required String content,
-  }) async {
+  static Future<Map<String, dynamic>> sendMessage(
+      {required Object recipientId, required String content}) async {
     final headers = await _headers();
-    final res = await http.post(
-      Uri.parse('$baseUrl/messages'),
-      headers: headers,
-      body: jsonEncode({'recipient_id': recipientId, 'content': content}),
-    );
+    final res = await http.post(Uri.parse('$baseUrl/messages/'),
+        headers: headers,
+        body: jsonEncode(
+            {'recipient_id': recipientId.toString(), 'content': content}));
     return jsonDecode(res.body);
   }
 
-  // ─── SCHEDULES ─────────────────────────────────────────
+  // PSYCHOLOGIST REPORTS
+  /// Sends a child progress report from psychologist → parent as a notification.
+  /// Returns `{success: bool, message: String}` with details on failure.
+  static Future<Map<String, dynamic>> sendChildReport({
+    required String recipientId,
+    required String childId,
+    required String childName,
+    required String reportContent,
+    required String psychologistName,
+    required String parentName,
+  }) async {
+    final headers = await _headers();
+    final title = '📋 Child Report: $childName';
+    final message = '$psychologistName → $parentName  ➤ $childName\'s report:\n\n$reportContent';
+    final res = await http.post(Uri.parse('$baseUrl/notifications/send'),
+        headers: headers,
+        body: jsonEncode({
+          'recipient_id': recipientId,
+          'title': title,
+          'message': message,
+          'type': 'psychologist_report',
+          'child_id': childId,
+        }));
+    if (res.statusCode == 200 || res.statusCode == 201) {
+      return {'success': true};
+    }
+    return {
+      'success': false,
+      'message': 'Server returned ${res.statusCode}: ${res.body}',
+    };
+  }
+
+  // SCHEDULES
   static Future<List<dynamic>> getSchedules({String? date}) async {
     final headers = await _headers();
     final query = date != null ? '?date=$date' : '';
-    final res = await http.get(
-        Uri.parse('$baseUrl/schedules$query'), headers: headers);
-    if (res.statusCode == 200) return jsonDecode(res.body);
+    final res = await http.get(Uri.parse('$baseUrl/schedules/$query'),
+        headers: headers);
+    if (res.statusCode == 200) {
+      final decoded = jsonDecode(res.body);
+      if (decoded is List) return decoded;
+      if (decoded is Map) {
+        final v = decoded['schedules'] ??
+            decoded['results'] ??
+            decoded['data'] ??
+            decoded['items'];
+        if (v is List) return v;
+      }
+      return [];
+    }
     return [];
   }
 
   static Future<Map<String, dynamic>> createSchedule(
       Map<String, dynamic> data) async {
     final headers = await _headers();
-    final res = await http.post(
-      Uri.parse('$baseUrl/schedules'),
-      headers: headers,
-      body: jsonEncode(data),
-    );
+    final res = await http.post(Uri.parse('$baseUrl/schedules/'),
+        headers: headers, body: jsonEncode(data));
     return jsonDecode(res.body);
   }
 
-  // ─── REPORTS ───────────────────────────────────────────
-  static Future<Map<String, dynamic>> getChildReport(String childId) async {
+  // REPORTS
+  static Future<Map<String, dynamic>> getChildReport(Object childId) async {
     final headers = await _headers();
     final res = await http.get(
-        Uri.parse('$baseUrl/reports/child/$childId'), headers: headers);
+        Uri.parse('$baseUrl/reports/child/${childId.toString()}/'),
+        headers: headers);
     if (res.statusCode == 200) return jsonDecode(res.body);
     return {};
   }
 
-  static Future<List<dynamic>> getAllStats() async {
+  static Future<Map<String, dynamic>> getSystemStats() async {
     final headers = await _headers();
     final res =
-    await http.get(Uri.parse('$baseUrl/reports/stats'), headers: headers);
-    if (res.statusCode == 200) return jsonDecode(res.body);
-    return [];
+        await http.get(Uri.parse('$baseUrl/reports/stats/'), headers: headers);
+    if (res.statusCode == 200) {
+      final decoded = jsonDecode(res.body);
+      if (decoded is Map<String, dynamic>) return decoded;
+      return {};
+    }
+    return {};
   }
 
-  // ─── ATTENDANCE ────────────────────────────────────────
+  // ATTENDANCE
   static Future<List<dynamic>> getAttendance({String? date}) async {
     final headers = await _headers();
     final query = date != null ? '?date=$date' : '';
-    final res = await http.get(
-        Uri.parse('$baseUrl/attendance$query'), headers: headers);
-    if (res.statusCode == 200) return jsonDecode(res.body);
+    final res = await http.get(Uri.parse('$baseUrl/attendance/$query'),
+        headers: headers);
+    if (res.statusCode == 200) {
+      final decoded = jsonDecode(res.body);
+      if (decoded is List) return decoded;
+      if (decoded is Map) {
+        final v = decoded['attendance'] ??
+            decoded['results'] ??
+            decoded['data'] ??
+            decoded['items'];
+        if (v is List) return v;
+      }
+      return [];
+    }
     return [];
   }
 
   static Future<Map<String, dynamic>> saveAttendance(
       Map<String, dynamic> data) async {
     final headers = await _headers();
-    final res = await http.post(
-      Uri.parse('$baseUrl/attendance'),
-      headers: headers,
-      body: jsonEncode(data),
-    );
+    final res = await http.post(Uri.parse('$baseUrl/attendance/'),
+        headers: headers, body: jsonEncode(data));
     return jsonDecode(res.body);
   }
 
-  // ─── SYSTEM LOGS ───────────────────────────────────────
+  // SYSTEM LOGS
   static Future<List<dynamic>> getSystemLogs() async {
     final headers = await _headers();
-    final res = await http.get(
-        Uri.parse('$baseUrl/logs'), headers: headers);
-    if (res.statusCode == 200) return jsonDecode(res.body);
+    final res = await http.get(Uri.parse('$baseUrl/logs/'), headers: headers);
+    if (res.statusCode == 200) {
+      final decoded = jsonDecode(res.body);
+      if (decoded is List) return decoded;
+      if (decoded is Map) {
+        final v = decoded['logs'] ??
+            decoded['results'] ??
+            decoded['data'] ??
+            decoded['items'];
+        if (v is List) return v;
+      }
+      return [];
+    }
     return [];
   }
 
-  // ─── USERS (Admin) ─────────────────────────────────────
+  // USERS (Admin)
   static Future<List<dynamic>> getAllUsers({String? role}) async {
     final headers = await _headers();
     final query = role != null ? '?role=$role' : '';
-    final res = await http.get(
-        Uri.parse('$baseUrl/users$query'), headers: headers);
-    if (res.statusCode == 200) return jsonDecode(res.body);
+    final res =
+        await http.get(Uri.parse('$baseUrl/users/$query'), headers: headers);
+    if (res.statusCode == 200) {
+      final decoded = jsonDecode(res.body);
+      if (decoded is List) return decoded;
+      if (decoded is Map) {
+        final v = decoded['users'] ??
+            decoded['results'] ??
+            decoded['data'] ??
+            decoded['items'];
+        if (v is List) return v;
+      }
+      return [];
+    }
     return [];
   }
 
   static Future<Map<String, dynamic>> createUser(
       Map<String, dynamic> data) async {
     final headers = await _headers();
-    final res = await http.post(
-      Uri.parse('$baseUrl/users'),
-      headers: headers,
-      body: jsonEncode(data),
-    );
+    final res = await http.post(Uri.parse('$baseUrl/users/'),
+        headers: headers, body: jsonEncode(data));
     return jsonDecode(res.body);
   }
 
-  static Future<void> deleteUser(String userId) async {
+  static Future<void> deleteUser(Object userId) async {
     final headers = await _headers();
-    await http.delete(Uri.parse('$baseUrl/users/$userId'), headers: headers);
+    final res = await http.delete(
+        Uri.parse('$baseUrl/users/${userId.toString()}'),
+        headers: headers);
+    if (res.statusCode != 200 && res.statusCode != 204) {
+      throw Exception('Failed to delete user: ${res.statusCode} ${res.body}');
+    }
   }
 }
-
