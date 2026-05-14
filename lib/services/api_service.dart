@@ -7,6 +7,12 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
+  static void Function()? onUnauthorized;
+
+  static void _check401(int statusCode) {
+    if (statusCode == 401) onUnauthorized?.call();
+  }
+
   // Auto-detect: Android emulator → 10.0.2.2, otherwise → 127.0.0.1
   // For physical device on same network, replace with your PC's IP (run `ipconfig`)
   static String get baseUrl {
@@ -90,6 +96,7 @@ class ApiService {
       headers: headers,
       body: jsonEncode(data),
     );
+    _check401(res.statusCode);
     if (res.statusCode == 200) return jsonDecode(res.body);
     return {};
   }
@@ -105,6 +112,7 @@ class ApiService {
         )
         .timeout(const Duration(seconds: 10));
 
+    _check401(response.statusCode);
     if (response.statusCode == 200) {
       final decoded = jsonDecode(response.body);
       if (decoded is List) return decoded;
@@ -132,6 +140,7 @@ class ApiService {
         )
         .timeout(const Duration(seconds: 10));
 
+    _check401(response.statusCode);
     if (response.statusCode == 201 || response.statusCode == 200) {
       return jsonDecode(response.body);
     } else {
@@ -153,6 +162,7 @@ class ApiService {
     final id = childId.toString();
     final res =
         await http.delete(Uri.parse('$baseUrl/children/$id'), headers: headers);
+    _check401(res.statusCode);
     if (res.statusCode != 200 && res.statusCode != 204) {
       throw Exception('Failed to delete child: ${res.statusCode} ${res.body}');
     }
@@ -176,6 +186,7 @@ class ApiService {
     final streamedRes = await request.send();
     final res = await http.Response.fromStream(streamedRes);
 
+    _check401(res.statusCode);
     if (res.statusCode < 200 || res.statusCode >= 300) {
       final body = res.body.trim();
       if (body.startsWith('<')) {
@@ -206,6 +217,7 @@ class ApiService {
           'child_id': childId.toString(),
           'activity_type': activityType,
         }));
+    _check401(res.statusCode);
     if (res.statusCode == 200 || res.statusCode == 201) {
       return jsonDecode(res.body);
     }
@@ -221,6 +233,7 @@ class ApiService {
     final uri =
         Uri.parse('$baseUrl/assessments').replace(queryParameters: params);
     final res = await http.get(uri, headers: headers);
+    _check401(res.statusCode);
     if (res.statusCode == 200) {
       final data = jsonDecode(res.body);
       if (data is List) return data;
@@ -249,6 +262,7 @@ class ApiService {
           if (note != null) 'note': note,
           if (correctedScore != null) 'corrected_score': correctedScore,
         }));
+    _check401(res.statusCode);
     if (res.statusCode >= 200 && res.statusCode < 300) {
       return jsonDecode(res.body);
     }
@@ -268,6 +282,7 @@ class ApiService {
       Uri.parse('$baseUrl/assessments/$id'),
       headers: headers,
     );
+    _check401(res.statusCode);
     if (res.statusCode != 200 && res.statusCode != 204) {
       throw Exception(
           'Failed to delete assessment: ${res.statusCode} ${res.body}');
@@ -279,13 +294,12 @@ class ApiService {
     final headers = await _headers();
     final res =
         await http.get(Uri.parse('$baseUrl/notifications'), headers: headers);
+    _check401(res.statusCode);
     if (res.statusCode == 200) {
       final decoded = jsonDecode(res.body);
       if (decoded is List) return decoded;
       if (decoded is Map) {
-        final v = decoded['results'] ??
-            decoded['data'] ??
-            decoded['items'];
+        final v = decoded['results'] ?? decoded['data'] ?? decoded['items'];
         if (v is List) return v;
       }
       return [];
@@ -315,6 +329,7 @@ class ApiService {
     final res = await http.patch(
         Uri.parse('$baseUrl/notifications/${id.toString()}/read'),
         headers: headers);
+    _check401(res.statusCode);
     if (res.statusCode != 200 && res.statusCode != 204) {
       throw Exception(
           'Failed to mark notification read: ${res.statusCode} ${res.body}');
@@ -329,6 +344,7 @@ class ApiService {
       headers: headers,
     );
 
+    _check401(res.statusCode);
     if (res.statusCode != 200) return [];
 
     final decoded = jsonDecode(res.body);
@@ -352,6 +368,7 @@ class ApiService {
       headers: headers,
     );
 
+    _check401(res.statusCode);
     if (res.statusCode != 200) return [];
 
     final decoded = jsonDecode(res.body);
@@ -391,7 +408,8 @@ class ApiService {
   }) async {
     final headers = await _headers();
     final title = '📋 Child Report: $childName';
-    final message = '$psychologistName → $parentName  ➤ $childName\'s report:\n\n$reportContent';
+    final message =
+        '$psychologistName → $parentName  ➤ $childName\'s report:\n\n$reportContent';
     final res = await http.post(Uri.parse('$baseUrl/notifications/send'),
         headers: headers,
         body: jsonEncode({
@@ -401,6 +419,7 @@ class ApiService {
           'type': 'psychologist_report',
           'child_id': childId,
         }));
+    _check401(res.statusCode);
     if (res.statusCode == 200 || res.statusCode == 201) {
       return {'success': true};
     }
@@ -416,6 +435,7 @@ class ApiService {
     final query = date != null ? '?date=$date' : '';
     final res = await http.get(Uri.parse('$baseUrl/schedules/$query'),
         headers: headers);
+    _check401(res.statusCode);
     if (res.statusCode == 200) {
       final decoded = jsonDecode(res.body);
       if (decoded is List) return decoded;
@@ -445,6 +465,7 @@ class ApiService {
     final res = await http.get(
         Uri.parse('$baseUrl/reports/child/${childId.toString()}/'),
         headers: headers);
+    _check401(res.statusCode);
     if (res.statusCode == 200) return jsonDecode(res.body);
     return {};
   }
@@ -453,6 +474,7 @@ class ApiService {
     final headers = await _headers();
     final res =
         await http.get(Uri.parse('$baseUrl/reports/stats/'), headers: headers);
+    _check401(res.statusCode);
     if (res.statusCode == 200) {
       final decoded = jsonDecode(res.body);
       if (decoded is Map<String, dynamic>) return decoded;
@@ -467,6 +489,7 @@ class ApiService {
     final query = date != null ? '?date=$date' : '';
     final res = await http.get(Uri.parse('$baseUrl/attendance/$query'),
         headers: headers);
+    _check401(res.statusCode);
     if (res.statusCode == 200) {
       final decoded = jsonDecode(res.body);
       if (decoded is List) return decoded;
@@ -494,6 +517,7 @@ class ApiService {
   static Future<List<dynamic>> getSystemLogs() async {
     final headers = await _headers();
     final res = await http.get(Uri.parse('$baseUrl/logs/'), headers: headers);
+    _check401(res.statusCode);
     if (res.statusCode == 200) {
       final decoded = jsonDecode(res.body);
       if (decoded is List) return decoded;
@@ -515,6 +539,7 @@ class ApiService {
     final query = role != null ? '?role=$role' : '';
     final res =
         await http.get(Uri.parse('$baseUrl/users/$query'), headers: headers);
+    _check401(res.statusCode);
     if (res.statusCode == 200) {
       final decoded = jsonDecode(res.body);
       if (decoded is List) return decoded;
@@ -543,6 +568,7 @@ class ApiService {
     final res = await http.delete(
         Uri.parse('$baseUrl/users/${userId.toString()}'),
         headers: headers);
+    _check401(res.statusCode);
     if (res.statusCode != 200 && res.statusCode != 204) {
       throw Exception('Failed to delete user: ${res.statusCode} ${res.body}');
     }

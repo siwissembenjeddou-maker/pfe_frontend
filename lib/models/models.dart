@@ -4,29 +4,29 @@ import 'dart:ui';
 
 class User {
   final String id;
-  final String name;
+  final String? name;
   final String email;
-  final String role; // admin, parent, psychologist, educator
+  final String role;
   final String? avatarUrl;
-  final String token;
+  final String? token;
 
   User({
     required this.id,
-    required this.name,
+    this.name,
     required this.email,
     required this.role,
     this.avatarUrl,
-    required this.token,
+    this.token,
   });
 
   factory User.fromJson(Map<String, dynamic> json) => User(
-    id: json['id'],
-    name: json['name'],
-    email: json['email'],
-    role: json['role'],
-    avatarUrl: json['avatar_url'],
-    token: json['token'],
-  );
+        id: (json['id'] ?? '').toString(),
+        name: json['name']?.toString(),
+        email: (json['email'] ?? '').toString(),
+        role: (json['role'] ?? 'user').toString(),
+        avatarUrl: json['avatar_url']?.toString(),
+        token: json['token']?.toString(),
+      );
 }
 
 class Child {
@@ -35,6 +35,7 @@ class Child {
   final int age;
   final String gender;
   final String parentId;
+  final String? parentName;
   final String? profileImage;
   final DateTime dateOfBirth;
   final List<Assessment> assessments;
@@ -45,43 +46,66 @@ class Child {
     required this.age,
     required this.gender,
     required this.parentId,
+    this.parentName,
     this.profileImage,
     required this.dateOfBirth,
     this.assessments = const [],
   });
 
+  double? get finalScore {
+    if (assessments.isEmpty) return null;
+
+    final effectiveScores =
+        assessments.map((a) => (a.correctedScore ?? a.autismScore)).toList();
+    if (effectiveScores.isEmpty) return null;
+
+    final sum = effectiveScores.reduce((x, y) => x + y);
+    return sum / effectiveScores.length;
+  }
+
   factory Child.fromJson(Map<String, dynamic> json) => Child(
-    id: json['id'],
-    name: json['name'],
-    age: json['age'],
-    gender: json['gender'],
-    parentId: json['parent_id'],
-    profileImage: json['profile_image'],
-    dateOfBirth: DateTime.parse(json['date_of_birth']),
-    assessments: (json['assessments'] as List? ?? [])
-        .map((a) => Assessment.fromJson(a))
-        .toList(),
-  );
+        id: (json['id'] ?? '').toString(),
+        name: (json['name'] ?? 'Unknown').toString(),
+        age: (json['age'] as num?)?.toInt() ?? 0,
+        gender: (json['gender'] ?? 'Unknown').toString(),
+        parentId: (json['parent_id'] ?? json['parentId'] ?? '').toString(),
+        parentName: json['parent_name']?.toString(),
+        profileImage: json['profile_image']?.toString(),
+        dateOfBirth: json['date_of_birth'] != null
+            ? DateTime.parse(json['date_of_birth'].toString())
+            : DateTime.now(),
+        assessments: (json['assessments'] as List? ?? [])
+            .map((a) => Assessment.fromJson(a as Map<String, dynamic>))
+            .toList(),
+      );
 }
 
 class Assessment {
   final String id;
   final String childId;
+  final String? childName;
+  final String? parentId;
+  final String? parentName;
   final String activityType;
   final String audioTranscription;
   final double autismScore;
-  final String severityLevel; // mild, moderate, severe
+  final String severityLevel;
   final Map<String, double> dimensionScores;
   final String? aiAnalysis;
-  final String status; // pending, reviewed, confirmed, corrected
+  final String status;
   final String? psychologistNote;
   final double? correctedScore;
   final DateTime createdAt;
   final DateTime? reviewedAt;
+  final List<String> immediateRecommendations;
+  final List<String> keyObservations;
 
   Assessment({
     required this.id,
     required this.childId,
+    this.childName,
+    this.parentId,
+    this.parentName,
     required this.activityType,
     required this.audioTranscription,
     required this.autismScore,
@@ -93,28 +117,47 @@ class Assessment {
     this.correctedScore,
     required this.createdAt,
     this.reviewedAt,
+    this.immediateRecommendations = const [],
+    this.keyObservations = const [],
   });
 
   factory Assessment.fromJson(Map<String, dynamic> json) => Assessment(
-    id: json['id'],
-    childId: json['child_id'],
-    activityType: json['activity_type'],
-    audioTranscription: json['audio_transcription'],
-    autismScore: (json['autism_score'] as num).toDouble(),
-    severityLevel: json['severity_level'],
-    dimensionScores: Map<String, double>.from(
-        json['dimension_scores']?.map((k, v) => MapEntry(k, (v as num).toDouble())) ?? {}),
-    aiAnalysis: json['ai_analysis'],
-    status: json['status'],
-    psychologistNote: json['psychologist_note'],
-    correctedScore: json['corrected_score'] != null
-        ? (json['corrected_score'] as num).toDouble()
-        : null,
-    createdAt: DateTime.parse(json['created_at']),
-    reviewedAt: json['reviewed_at'] != null
-        ? DateTime.parse(json['reviewed_at'])
-        : null,
-  );
+        id: (json['id'] ?? '').toString(),
+        childId: (json['child_id'] ?? json['child'] ?? '').toString(),
+        childName: json['child_name']?.toString(),
+        parentId: json['parent_id']?.toString(),
+        parentName: json['parent_name']?.toString(),
+        activityType: (json['activity_type'] ?? 'Unknown').toString(),
+        audioTranscription: (json['audio_transcription'] ?? '').toString(),
+        autismScore: (json['autism_score'] as num? ?? 0).toDouble(),
+        severityLevel: (json['severity_level'] ?? 'unknown').toString(),
+        dimensionScores: _parseDimensionScores(json['dimension_scores']),
+        aiAnalysis: json['ai_analysis']?.toString(),
+        status: (json['status'] ?? 'pending').toString(),
+        psychologistNote: json['psychologist_note']?.toString(),
+        correctedScore: json['corrected_score'] != null
+            ? (json['corrected_score'] as num).toDouble()
+            : null,
+        createdAt: json['created_at'] != null
+            ? DateTime.parse(json['created_at'].toString())
+            : DateTime.now(),
+        reviewedAt: json['reviewed_at'] != null
+            ? DateTime.parse(json['reviewed_at'].toString())
+            : null,
+        immediateRecommendations:
+            _parseStringList(json['immediate_recommendations']),
+        keyObservations: _parseStringList(json['key_observations']),
+      );
+
+  static Map<String, double> _parseDimensionScores(dynamic raw) {
+    if (raw == null || raw is! Map) return {};
+    return raw.map((k, v) => MapEntry(k.toString(), (v as num).toDouble()));
+  }
+
+  static List<String> _parseStringList(dynamic raw) {
+    if (raw == null || raw is! List) return [];
+    return raw.map((e) => e.toString()).toList();
+  }
 
   Color get severityColor {
     switch (severityLevel.toLowerCase()) {
@@ -134,7 +177,7 @@ class Notification {
   final String id;
   final String title;
   final String message;
-  final String type; // assessment_result, message, reminder
+  final String type;
   final bool isRead;
   final DateTime createdAt;
 
@@ -148,13 +191,15 @@ class Notification {
   });
 
   factory Notification.fromJson(Map<String, dynamic> json) => Notification(
-    id: json['id'],
-    title: json['title'],
-    message: json['message'],
-    type: json['type'],
-    isRead: json['is_read'],
-    createdAt: DateTime.parse(json['created_at']),
-  );
+        id: (json['id'] ?? '').toString(),
+        title: (json['title'] ?? '').toString(),
+        message: (json['message'] ?? '').toString(),
+        type: (json['type'] ?? 'general').toString(),
+        isRead: json['is_read'] == true,
+        createdAt: json['created_at'] != null
+            ? DateTime.parse(json['created_at'].toString())
+            : DateTime.now(),
+      );
 }
 
 class ActivitySchedule {
@@ -178,13 +223,17 @@ class ActivitySchedule {
 
   factory ActivitySchedule.fromJson(Map<String, dynamic> json) =>
       ActivitySchedule(
-        id: json['id'],
-        title: json['title'],
-        description: json['description'],
-        date: DateTime.parse(json['date']),
-        time: json['time'],
-        activityType: json['activity_type'],
-        participantIds: List<String>.from(json['participant_ids'] ?? []),
+        id: (json['id'] ?? '').toString(),
+        title: (json['title'] ?? '').toString(),
+        description: (json['description'] ?? '').toString(),
+        date: json['date'] != null
+            ? DateTime.parse(json['date'].toString())
+            : DateTime.now(),
+        time: (json['time'] ?? '').toString(),
+        activityType: (json['activity_type'] ?? '').toString(),
+        participantIds: (json['participant_ids'] as List? ?? [])
+            .map((e) => e.toString())
+            .toList(),
       );
 }
 
