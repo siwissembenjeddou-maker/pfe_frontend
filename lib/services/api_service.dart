@@ -17,7 +17,9 @@ class ApiService {
   // For physical device on same network, replace with your PC's IP (run `ipconfig`)
   static String get baseUrl {
     if (Platform.isAndroid) {
-      return 'http://10.0.2.2:8000';
+      // Physical device (Android) on same LAN as backend
+      // Use your PC's LAN IPv4 address
+      return 'http://192.168.100.124:8000';
     }
     return 'http://127.0.0.1:8000';
   }
@@ -51,8 +53,20 @@ class ApiService {
           throw Exception('Server is not responding. Check your backend.');
         },
       );
-      final data = jsonDecode(res.body);
-      return {'success': res.statusCode == 200, ...data};
+      // Helpful debugging: if backend returns HTML (Django error page), show it instead of crashing.
+      try {
+        final data = jsonDecode(res.body);
+        return {'success': res.statusCode == 200, ...data};
+      } catch (e) {
+        final preview = res.body.length > 300
+            ? '${res.body.substring(0, 300)}...'
+            : res.body;
+        return {
+          'success': false,
+          'message':
+              'Unexpected response format (not JSON). status=${res.statusCode}. bodyPreview=$preview'
+        };
+      }
     } catch (e) {
       return {'success': false, 'message': 'Connection error: $e'};
     }

@@ -120,7 +120,9 @@ class _ParentScreenState extends State<ParentScreen> {
                   },
                 ),
                 const SizedBox(height: 12),
-                Row(
+                Wrap(
+                  spacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     const Text('Gender: '),
                     ChoiceChip(
@@ -128,7 +130,6 @@ class _ParentScreenState extends State<ParentScreen> {
                       selected: gender == 'male',
                       onSelected: (_) => setS(() => gender = 'male'),
                     ),
-                    const SizedBox(width: 8),
                     ChoiceChip(
                       label: const Text('Female'),
                       selected: gender == 'female',
@@ -175,14 +176,14 @@ class _ParentScreenState extends State<ParentScreen> {
     dobCtrl.dispose();
   }
 
-  void _showEditChildDialog(Child child) {
+  Future<void> _showEditChildDialog(Child child) async {
     final nameCtrl = TextEditingController(text: child.name);
     final dobCtrl = TextEditingController(
       text: DateFormat('yyyy-MM-dd').format(child.dateOfBirth),
     );
     String gender = child.gender;
 
-    showDialog(
+    await showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setS) => AlertDialog(
@@ -221,7 +222,9 @@ class _ParentScreenState extends State<ParentScreen> {
                   },
                 ),
                 const SizedBox(height: 12),
-                Row(
+                Wrap(
+                  spacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     const Text('Gender: '),
                     ChoiceChip(
@@ -229,7 +232,6 @@ class _ParentScreenState extends State<ParentScreen> {
                       selected: gender == 'male',
                       onSelected: (_) => setS(() => gender = 'male'),
                     ),
-                    const SizedBox(width: 8),
                     ChoiceChip(
                       label: const Text('Female'),
                       selected: gender == 'female',

@@ -13,12 +13,14 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   ApiService.onUnauthorized = () {
     if (navigatorKey.currentContext != null) {
-      final auth = Provider.of<AuthService>(navigatorKey.currentContext!, listen: false);
+      final auth =
+          Provider.of<AuthService>(navigatorKey.currentContext!, listen: false);
       auth.logout();
-      navigatorKey.currentState?.pushNamedAndRemoveUntil('/login', (route) => false);
+      navigatorKey.currentState
+          ?.pushNamedAndRemoveUntil('/login', (route) => false);
     }
   };
 

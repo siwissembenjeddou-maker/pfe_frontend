@@ -252,12 +252,8 @@ Future<void> _showAddUserDialogHelper(
             final email = emailCtrl.text;
             final pass = passCtrl.text;
             Navigator.pop(context);
-            await ApiService.createUser({
-              'name': name,
-              'email': email,
-              'password': pass,
-              'role': role
-            });
+            await ApiService.createUser(
+                {'name': name, 'email': email, 'password': pass, 'role': role});
             onCreated();
           },
           child: const Text('Create'),

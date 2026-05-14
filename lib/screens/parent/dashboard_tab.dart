@@ -178,17 +178,31 @@ class DashboardTab extends StatelessWidget {
                               Container(
                                 margin: const EdgeInsets.only(top: 4),
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 2),
+                                    horizontal: 8, vertical: 4),
                                 decoration: BoxDecoration(
                                   color: AppTheme.accent.withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
-                                child: Text(
-                                    '${child.assessments.length} assessment(s)',
-                                    style: const TextStyle(
-                                        color: AppTheme.accent,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w500)),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.assignment_outlined,
+                                        size: 14, color: AppTheme.accent),
+                                    const SizedBox(width: 4),
+                                    Flexible(
+                                      child: Text(
+                                        '${child.assessments.length} Assessment${child.assessments.length == 1 ? '' : 's'}',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          color: AppTheme.accent,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                           ],
                         ),
@@ -196,6 +210,7 @@ class DashboardTab extends StatelessWidget {
                       Builder(
                         builder: (context) {
                           final level =
+                              // ignore: unnecessary_cast
                               _levelForScore(child.finalScore as double?);
                           if (level == null) return const SizedBox.shrink();
                           return Container(

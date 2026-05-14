@@ -34,13 +34,12 @@ dependencies:
   # Image picker
   image_picker: ^1.1.2
 
-  # Icons fix (IMPORTANT)
+  # Device info (needed for permissions compatibility)
+  device_info_plus: ^10.1.0
+
+  # Icons
   font_awesome_flutter: ^11.0.0
-
-  # Optional SVG support (safe to keep)
   flutter_svg: ^2.0.10+1
-
-  # Default iOS icons
   cupertino_icons: ^1.0.6
 
   # Utils
@@ -51,21 +50,24 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
-
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.3
 
 flutter:
   uses-material-design: true
 
   assets:
-    - assets/fonts/
+    - assets/
 
   fonts:
     - family: Poppins
       fonts:
         - asset: assets/fonts/Poppins-Regular.ttf
-          style: normal
           weight: 400
         - asset: assets/fonts/Poppins-Bold.ttf
-          style: normal
           weight: 700
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: assets/icon/app_icon.png

@@ -1458,7 +1458,8 @@ class _ReportTabState extends State<_ReportTab> {
                   ),
                   const SizedBox(height: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 10),
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.14),
                       borderRadius: BorderRadius.circular(14),
@@ -1485,7 +1486,6 @@ class _ReportTabState extends State<_ReportTab> {
             ),
             const SizedBox(height: 16),
           ],
-
           TextField(
             controller: _reportCtrl,
             maxLines: 8,

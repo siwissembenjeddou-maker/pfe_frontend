@@ -22,6 +22,7 @@ class SolutionsTab extends StatelessWidget {
     // Convert safely to a double for the SolutionsPage.
     final scoreRaw =
         child.finalScore ?? latest.correctedScore ?? latest.autismScore;
+    // ignore: unnecessary_type_check
     final score = (scoreRaw is num)
         ? scoreRaw.toDouble()
         : double.tryParse(scoreRaw.toString()) ?? 0.0;
