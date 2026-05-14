@@ -325,7 +325,11 @@ class _PsychologistScreenState extends State<PsychologistScreen> {
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
             Text(
-              'Dr. ${user?.name ?? ''}',
+              (user?.name != null &&
+                      (user!.name!.startsWith('Dr.') ||
+                          user.name!.startsWith('dr.')))
+                  ? user.name!
+                  : 'Dr. ${user?.name ?? ''}',
               style:
                   const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
             ),
@@ -342,10 +346,12 @@ class _PsychologistScreenState extends State<PsychologistScreen> {
             },
           ),
         ],
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(92),
-          child: _buildFilters(),
-        ),
+        bottom: _currentIndex == 3
+            ? null
+            : PreferredSize(
+                preferredSize: const Size.fromHeight(92),
+                child: _buildFilters(),
+              ),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
