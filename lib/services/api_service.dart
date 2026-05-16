@@ -18,8 +18,8 @@ class ApiService {
   static String get baseUrl {
     if (Platform.isAndroid) {
       // Physical device (Android) on same LAN as backend
-      // Use your PC's LAN IPv4 address
-      return 'http://192.168.100.124:8000';
+      // Using PC's LAN IPv4 address found via ipconfig: 10.236.250.160
+      return 'http://10.236.250.160:8000';
     }
     return 'http://127.0.0.1:8000';
   }

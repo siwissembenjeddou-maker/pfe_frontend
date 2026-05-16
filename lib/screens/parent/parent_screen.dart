@@ -81,10 +81,10 @@ class _ParentScreenState extends State<ParentScreen> {
     final dobCtrl = TextEditingController();
     String gender = 'male';
 
-    await showDialog(
+    final bool? shouldRefresh = await showDialog<bool>(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setS) => AlertDialog(
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (statefulCtx, setS) => AlertDialog(
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
@@ -109,7 +109,7 @@ class _ParentScreenState extends State<ParentScreen> {
                   readOnly: true,
                   onTap: () async {
                     final date = await showDatePicker(
-                      context: ctx,
+                      context: statefulCtx,
                       initialDate: DateTime(2018),
                       firstDate: DateTime(2000),
                       lastDate: DateTime.now(),
@@ -142,11 +142,17 @@ class _ParentScreenState extends State<ParentScreen> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(ctx),
+              onPressed: () => Navigator.pop(statefulCtx, false),
               child: const Text('Cancel'),
             ),
             ElevatedButton(
               onPressed: () async {
+                if (nameCtrl.text.isEmpty || dobCtrl.text.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Please fill all fields')),
+                  );
+                  return;
+                }
                 try {
                   final user = context.read<AuthService>().currentUser;
                   await ApiService.addChild({
@@ -156,8 +162,7 @@ class _ParentScreenState extends State<ParentScreen> {
                     'parent_id': user?.id,
                   });
                   if (!context.mounted) return;
-                  Navigator.pop(ctx);
-                  await _loadData();
+                  Navigator.pop(statefulCtx, true);
                 } catch (e) {
                   if (!context.mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -172,6 +177,10 @@ class _ParentScreenState extends State<ParentScreen> {
       ),
     );
 
+    if (shouldRefresh == true) {
+      await _loadData();
+    }
+
     nameCtrl.dispose();
     dobCtrl.dispose();
   }
@@ -183,10 +192,10 @@ class _ParentScreenState extends State<ParentScreen> {
     );
     String gender = child.gender;
 
-    await showDialog(
+    final bool? shouldRefresh = await showDialog<bool>(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setS) => AlertDialog(
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (statefulCtx, setS) => AlertDialog(
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
@@ -211,7 +220,7 @@ class _ParentScreenState extends State<ParentScreen> {
                   readOnly: true,
                   onTap: () async {
                     final date = await showDatePicker(
-                      context: ctx,
+                      context: statefulCtx,
                       initialDate: child.dateOfBirth,
                       firstDate: DateTime(2000),
                       lastDate: DateTime.now(),
@@ -244,7 +253,7 @@ class _ParentScreenState extends State<ParentScreen> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(ctx),
+              onPressed: () => Navigator.pop(statefulCtx, false),
               child: const Text('Cancel'),
             ),
             ElevatedButton(
@@ -256,8 +265,7 @@ class _ParentScreenState extends State<ParentScreen> {
                     'gender': gender,
                   });
                   if (!context.mounted) return;
-                  Navigator.pop(ctx);
-                  await _loadData();
+                  Navigator.pop(statefulCtx, true);
                 } catch (e) {
                   if (!context.mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -272,19 +280,23 @@ class _ParentScreenState extends State<ParentScreen> {
       ),
     );
 
+    if (shouldRefresh == true) {
+      await _loadData();
+    }
+
     nameCtrl.dispose();
     dobCtrl.dispose();
   }
 
-  void _confirmDeleteChild(Child child) {
-    showDialog(
+  void _confirmDeleteChild(Child child) async {
+    final bool? shouldDelete = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (dialogCtx) => AlertDialog(
         title: const Text('Delete Child'),
         content: Text('Remove ${child.name}? This cannot be undone.'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(ctx),
+            onPressed: () => Navigator.pop(dialogCtx, false),
             child: const Text('Cancel'),
           ),
           ElevatedButton(
@@ -295,8 +307,7 @@ class _ParentScreenState extends State<ParentScreen> {
               try {
                 await ApiService.deleteChild(child.id);
                 if (!context.mounted) return;
-                Navigator.pop(ctx);
-                await _loadData();
+                Navigator.pop(dialogCtx, true);
               } catch (e) {
                 if (!context.mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -309,6 +320,10 @@ class _ParentScreenState extends State<ParentScreen> {
         ],
       ),
     );
+
+    if (shouldDelete == true) {
+      await _loadData();
+    }
   }
 
   @override
