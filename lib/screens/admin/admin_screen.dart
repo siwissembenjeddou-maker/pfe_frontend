@@ -133,7 +133,10 @@ class _AdminScreenState extends State<AdminScreen> {
   }
 
   Future<void> _showAddUserDialog(BuildContext context, String role) async {
-    await _showAddUserDialogHelper(context, role, _loadData);
+    await showDialog(
+      context: context,
+      builder: (_) => _AddUserDialog(role: role, onCreated: _loadData),
+    );
   }
 
   Future<void> _loadData() async {
@@ -218,52 +221,110 @@ class _AdminScreenState extends State<AdminScreen> {
   }
 }
 
-Future<void> _showAddUserDialogHelper(
-    BuildContext context, String role, VoidCallback onCreated) async {
-  final nameCtrl = TextEditingController();
-  final emailCtrl = TextEditingController();
-  final passCtrl = TextEditingController();
-  await showDialog(
-    context: context,
-    builder: (_) => AlertDialog(
+class _AddUserDialog extends StatefulWidget {
+  final String role;
+  final VoidCallback onCreated;
+
+  const _AddUserDialog({required this.role, required this.onCreated});
+
+  @override
+  State<_AddUserDialog> createState() => _AddUserDialogState();
+}
+
+class _AddUserDialogState extends State<_AddUserDialog> {
+  final _nameCtrl = TextEditingController();
+  final _emailCtrl = TextEditingController();
+  final _passCtrl = TextEditingController();
+  bool _submitting = false;
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _emailCtrl.dispose();
+    _passCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: Text('Add ${role[0].toUpperCase()}${role.substring(1)}'),
-      content: Column(mainAxisSize: MainAxisSize.min, children: [
-        TextField(
-            controller: nameCtrl,
-            decoration: const InputDecoration(labelText: 'Full Name')),
-        const SizedBox(height: 8),
-        TextField(
-            controller: emailCtrl,
-            decoration: const InputDecoration(labelText: 'Email')),
-        const SizedBox(height: 8),
-        TextField(
-            controller: passCtrl,
+      title: Text(
+          'Add ${widget.role[0].toUpperCase()}${widget.role.substring(1)}'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: _nameCtrl,
+            decoration: const InputDecoration(labelText: 'Full Name'),
+            enabled: !_submitting,
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _emailCtrl,
+            decoration: const InputDecoration(labelText: 'Email'),
+            enabled: !_submitting,
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _passCtrl,
             obscureText: true,
-            decoration: const InputDecoration(labelText: 'Password')),
-      ]),
+            decoration: const InputDecoration(labelText: 'Password'),
+            enabled: !_submitting,
+          ),
+        ],
+      ),
       actions: [
         TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel')),
+          onPressed: _submitting ? null : () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
         ElevatedButton(
-          onPressed: () async {
-            final name = nameCtrl.text;
-            final email = emailCtrl.text;
-            final pass = passCtrl.text;
-            Navigator.pop(context);
-            await ApiService.createUser(
-                {'name': name, 'email': email, 'password': pass, 'role': role});
-            onCreated();
-          },
-          child: const Text('Create'),
+          onPressed: _submitting
+              ? null
+              : () async {
+                  final name = _nameCtrl.text.trim();
+                  final email = _emailCtrl.text.trim();
+                  final pass = _passCtrl.text;
+
+                  if (name.isEmpty || email.isEmpty || pass.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Please fill all fields')),
+                    );
+                    return;
+                  }
+
+                  setState(() => _submitting = true);
+                  try {
+                    await ApiService.createUser({
+                      'name': name,
+                      'email': email,
+                      'password': pass,
+                      'role': widget.role,
+                    });
+                    if (!mounted) return;
+                    Navigator.pop(context);
+                    widget.onCreated();
+                  } catch (e) {
+                    if (!mounted) return;
+                    setState(() => _submitting = false);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Failed to create user: $e')),
+                    );
+                  }
+                },
+          child: _submitting
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: Colors.white),
+                )
+              : const Text('Create'),
         ),
       ],
-    ),
-  );
-  nameCtrl.dispose();
-  emailCtrl.dispose();
-  passCtrl.dispose();
+    );
+  }
 }
 
 class _AdminDashboard extends StatelessWidget {
@@ -470,7 +531,10 @@ class _UserManagementTab extends StatelessWidget {
   }
 
   void _showAddUserDialog(BuildContext context, String role) {
-    _showAddUserDialogHelper(context, role, onRefresh);
+    showDialog(
+      context: context,
+      builder: (_) => _AddUserDialog(role: role, onCreated: onRefresh),
+    );
   }
 }
 

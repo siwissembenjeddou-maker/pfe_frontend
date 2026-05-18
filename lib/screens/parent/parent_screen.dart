@@ -77,215 +77,26 @@ class _ParentScreenState extends State<ParentScreen> {
   }
 
   Future<void> _showAddChildDialog() async {
-    final nameCtrl = TextEditingController();
-    final dobCtrl = TextEditingController();
-    String gender = 'male';
-
     final bool? shouldRefresh = await showDialog<bool>(
       context: context,
-      builder: (dialogCtx) => StatefulBuilder(
-        builder: (statefulCtx, setS) => AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: const Text('Add Child Profile'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nameCtrl,
-                  decoration: const InputDecoration(
-                    labelText: "Child's Name",
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: dobCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Date of Birth',
-                    suffixIcon: Icon(Icons.calendar_today),
-                  ),
-                  readOnly: true,
-                  onTap: () async {
-                    final date = await showDatePicker(
-                      context: statefulCtx,
-                      initialDate: DateTime(2018),
-                      firstDate: DateTime(2000),
-                      lastDate: DateTime.now(),
-                    );
-                    if (date != null) {
-                      dobCtrl.text = DateFormat('yyyy-MM-dd').format(date);
-                    }
-                  },
-                ),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 8,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    const Text('Gender: '),
-                    ChoiceChip(
-                      label: const Text('Male'),
-                      selected: gender == 'male',
-                      onSelected: (_) => setS(() => gender = 'male'),
-                    ),
-                    ChoiceChip(
-                      label: const Text('Female'),
-                      selected: gender == 'female',
-                      onSelected: (_) => setS(() => gender = 'female'),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(statefulCtx, false),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                if (nameCtrl.text.isEmpty || dobCtrl.text.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Please fill all fields')),
-                  );
-                  return;
-                }
-                try {
-                  final user = context.read<AuthService>().currentUser;
-                  await ApiService.addChild({
-                    'name': nameCtrl.text,
-                    'date_of_birth': dobCtrl.text,
-                    'gender': gender,
-                    'parent_id': user?.id,
-                  });
-                  if (!context.mounted) return;
-                  Navigator.pop(statefulCtx, true);
-                } catch (e) {
-                  if (!context.mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Error adding child: $e')),
-                  );
-                }
-              },
-              child: const Text('Add'),
-            ),
-          ],
-        ),
-      ),
+      builder: (dialogCtx) => _AddChildDialog(parentContext: context),
     );
 
     if (shouldRefresh == true) {
       await _loadData();
     }
-
-    nameCtrl.dispose();
-    dobCtrl.dispose();
   }
 
   Future<void> _showEditChildDialog(Child child) async {
-    final nameCtrl = TextEditingController(text: child.name);
-    final dobCtrl = TextEditingController(
-      text: DateFormat('yyyy-MM-dd').format(child.dateOfBirth),
-    );
-    String gender = child.gender;
-
     final bool? shouldRefresh = await showDialog<bool>(
       context: context,
-      builder: (dialogCtx) => StatefulBuilder(
-        builder: (statefulCtx, setS) => AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: const Text('Edit Child Profile'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nameCtrl,
-                  decoration: const InputDecoration(
-                    labelText: "Child's Name",
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: dobCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Date of Birth',
-                    suffixIcon: Icon(Icons.calendar_today),
-                  ),
-                  readOnly: true,
-                  onTap: () async {
-                    final date = await showDatePicker(
-                      context: statefulCtx,
-                      initialDate: child.dateOfBirth,
-                      firstDate: DateTime(2000),
-                      lastDate: DateTime.now(),
-                    );
-                    if (date != null) {
-                      dobCtrl.text = DateFormat('yyyy-MM-dd').format(date);
-                    }
-                  },
-                ),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 8,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    const Text('Gender: '),
-                    ChoiceChip(
-                      label: const Text('Male'),
-                      selected: gender == 'male',
-                      onSelected: (_) => setS(() => gender = 'male'),
-                    ),
-                    ChoiceChip(
-                      label: const Text('Female'),
-                      selected: gender == 'female',
-                      onSelected: (_) => setS(() => gender = 'female'),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(statefulCtx, false),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                try {
-                  await ApiService.updateChild(child.id, {
-                    'name': nameCtrl.text,
-                    'date_of_birth': dobCtrl.text,
-                    'gender': gender,
-                  });
-                  if (!context.mounted) return;
-                  Navigator.pop(statefulCtx, true);
-                } catch (e) {
-                  if (!context.mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Error updating child: $e')),
-                  );
-                }
-              },
-              child: const Text('Save'),
-            ),
-          ],
-        ),
-      ),
+      builder: (dialogCtx) =>
+          _EditChildDialog(child: child, parentContext: context),
     );
 
     if (shouldRefresh == true) {
       await _loadData();
     }
-
-    nameCtrl.dispose();
-    dobCtrl.dispose();
   }
 
   void _confirmDeleteChild(Child child) async {
@@ -452,6 +263,248 @@ class _ParentScreenState extends State<ParentScreen> {
               backgroundColor: AppTheme.primary,
             )
           : null,
+    );
+  }
+}
+
+class _AddChildDialog extends StatefulWidget {
+  final BuildContext parentContext;
+  const _AddChildDialog({required this.parentContext});
+
+  @override
+  State<_AddChildDialog> createState() => _AddChildDialogState();
+}
+
+class _AddChildDialogState extends State<_AddChildDialog> {
+  final _nameCtrl = TextEditingController();
+  final _dobCtrl = TextEditingController();
+  String _gender = 'male';
+  bool _submitting = false;
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _dobCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: const Text('Add Child Profile'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _nameCtrl,
+              decoration: const InputDecoration(labelText: "Child's Name"),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _dobCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Date of Birth',
+                suffixIcon: Icon(Icons.calendar_today),
+              ),
+              readOnly: true,
+              onTap: () async {
+                final date = await showDatePicker(
+                  context: context,
+                  initialDate: DateTime(2018),
+                  firstDate: DateTime(2000),
+                  lastDate: DateTime.now(),
+                );
+                if (date != null) {
+                  _dobCtrl.text = DateFormat('yyyy-MM-dd').format(date);
+                }
+              },
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                const Text('Gender: '),
+                ChoiceChip(
+                  label: const Text('Male'),
+                  selected: _gender == 'male',
+                  onSelected: (_) => setState(() => _gender = 'male'),
+                ),
+                ChoiceChip(
+                  label: const Text('Female'),
+                  selected: _gender == 'female',
+                  onSelected: (_) => setState(() => _gender = 'female'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _submitting ? null : () => Navigator.pop(context, false),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: _submitting
+              ? null
+              : () async {
+                  if (_nameCtrl.text.isEmpty || _dobCtrl.text.isEmpty) {
+                    ScaffoldMessenger.of(widget.parentContext).showSnackBar(
+                      const SnackBar(content: Text('Please fill all fields')),
+                    );
+                    return;
+                  }
+                  setState(() => _submitting = true);
+                  try {
+                    final user =
+                        widget.parentContext.read<AuthService>().currentUser;
+                    await ApiService.addChild({
+                      'name': _nameCtrl.text,
+                      'date_of_birth': _dobCtrl.text,
+                      'gender': _gender,
+                      'parent_id': user?.id,
+                    });
+                    if (!mounted) return;
+                    Navigator.pop(context, true);
+                  } catch (e) {
+                    setState(() => _submitting = false);
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(widget.parentContext).showSnackBar(
+                      SnackBar(content: Text('Error adding child: $e')),
+                    );
+                  }
+                },
+          child: _submitting
+              ? const SizedBox(
+                  width: 20, height: 20, child: CircularProgressIndicator())
+              : const Text('Add'),
+        ),
+      ],
+    );
+  }
+}
+
+class _EditChildDialog extends StatefulWidget {
+  final Child child;
+  final BuildContext parentContext;
+  const _EditChildDialog({required this.child, required this.parentContext});
+
+  @override
+  State<_EditChildDialog> createState() => _EditChildDialogState();
+}
+
+class _EditChildDialogState extends State<_EditChildDialog> {
+  late TextEditingController _nameCtrl;
+  late TextEditingController _dobCtrl;
+  late String _gender;
+  bool _submitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameCtrl = TextEditingController(text: widget.child.name);
+    _dobCtrl = TextEditingController(
+      text: DateFormat('yyyy-MM-dd').format(widget.child.dateOfBirth),
+    );
+    _gender = widget.child.gender;
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _dobCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: const Text('Edit Child Profile'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _nameCtrl,
+              decoration: const InputDecoration(labelText: "Child's Name"),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _dobCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Date of Birth',
+                suffixIcon: Icon(Icons.calendar_today),
+              ),
+              readOnly: true,
+              onTap: () async {
+                final date = await showDatePicker(
+                  context: context,
+                  initialDate: widget.child.dateOfBirth,
+                  firstDate: DateTime(2000),
+                  lastDate: DateTime.now(),
+                );
+                if (date != null) {
+                  _dobCtrl.text = DateFormat('yyyy-MM-dd').format(date);
+                }
+              },
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                const Text('Gender: '),
+                ChoiceChip(
+                  label: const Text('Male'),
+                  selected: _gender == 'male',
+                  onSelected: (_) => setState(() => _gender = 'male'),
+                ),
+                ChoiceChip(
+                  label: const Text('Female'),
+                  selected: _gender == 'female',
+                  onSelected: (_) => setState(() => _gender = 'female'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _submitting ? null : () => Navigator.pop(context, false),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: _submitting
+              ? null
+              : () async {
+                  setState(() => _submitting = true);
+                  try {
+                    await ApiService.updateChild(widget.child.id, {
+                      'name': _nameCtrl.text,
+                      'date_of_birth': _dobCtrl.text,
+                      'gender': _gender,
+                    });
+                    if (!mounted) return;
+                    Navigator.pop(context, true);
+                  } catch (e) {
+                    setState(() => _submitting = false);
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(widget.parentContext).showSnackBar(
+                      SnackBar(content: Text('Error updating child: $e')),
+                    );
+                  }
+                },
+          child: _submitting
+              ? const SizedBox(
+                  width: 20, height: 20, child: CircularProgressIndicator())
+              : const Text('Save'),
+        ),
+      ],
     );
   }
 }

@@ -19,7 +19,7 @@ class ApiService {
     if (Platform.isAndroid) {
       // Physical device (Android) on same LAN as backend
       // Using PC's LAN IPv4 address found via ipconfig: 10.236.250.160
-      return 'http://10.236.250.160:8000';
+      return 'http://10.214.241.160:8000';
     }
     return 'http://127.0.0.1:8000';
   }

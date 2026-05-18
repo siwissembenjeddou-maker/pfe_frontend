@@ -209,6 +209,7 @@ class _PsychologistScreenState extends State<PsychologistScreen> {
             children: [
               Expanded(
                 child: DropdownButtonFormField<String>(
+                  isExpanded: true,
                   value: _selectedParentId,
                   decoration: const InputDecoration(
                     labelText: 'Parent',
@@ -219,15 +220,21 @@ class _PsychologistScreenState extends State<PsychologistScreen> {
                     if (_selectedParentId == null)
                       const DropdownMenuItem<String>(
                         value: null,
-                        child: Text('All Parents'),
+                        child: Text(
+                          'All Parents',
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                     ...parentEntries.map(
                       (e) => DropdownMenuItem<String>(
                         value: e.key,
-                        child: Text(e.value),
+                        child: Text(
+                          e.value,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                     ),
-                  ].where((e) => true).toList(),
+                  ],
                   onChanged: (v) {
                     setState(() {
                       // DropdownButtonFormField does not support null values consistently in all channels,
@@ -245,6 +252,7 @@ class _PsychologistScreenState extends State<PsychologistScreen> {
               const SizedBox(width: 12),
               Expanded(
                 child: DropdownButtonFormField<String>(
+                  isExpanded: true,
                   value: _selectedChildId,
                   decoration: const InputDecoration(
                     labelText: 'Child',
@@ -255,13 +263,18 @@ class _PsychologistScreenState extends State<PsychologistScreen> {
                     if (_selectedChildId == null)
                       const DropdownMenuItem<String>(
                         value: null,
-                        child: Text('All Children'),
+                        child: Text(
+                          'All Children',
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                     ...childItems.map(
                       (c) => DropdownMenuItem<String>(
                         value: c.id,
-                        child:
-                            Text(c.age > 0 ? '${c.name} (${c.age})' : c.name),
+                        child: Text(
+                          c.age > 0 ? '${c.name} (${c.age})' : c.name,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                     ),
                   ],
@@ -616,12 +629,16 @@ class _StatCard extends StatelessWidget {
               const SizedBox(height: 6),
               Text(
                 value,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                     color: color, fontSize: 22, fontWeight: FontWeight.bold),
               ),
               Text(
                 label,
                 textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                     color: AppTheme.textSecondary, fontSize: 11),
               ),
@@ -714,160 +731,165 @@ class _ReviewedCardState extends State<_ReviewedCard> {
             20,
             MediaQuery.of(ctx).viewInsets.bottom + 20,
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Review Assessment',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Activity: ${assessment.activityType}',
-                style: const TextStyle(color: AppTheme.textSecondary),
-              ),
-              const Divider(height: 24),
-              Row(
-                children: [
-                  const Text('AI Score: ',
-                      style: TextStyle(fontWeight: FontWeight.bold)),
-                  ScoreBadge(
-                    assessment.autismScore,
-                    correctedScore: assessment.correctedScore,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Review Assessment',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Activity: ${assessment.activityType}',
+                  style: const TextStyle(color: AppTheme.textSecondary),
+                ),
+                const Divider(height: 24),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    const Text('AI Score: ',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    ScoreBadge(
+                      assessment.autismScore,
+                      correctedScore: assessment.correctedScore,
+                    ),
+                    SeverityBadge(assessment.severityLevel),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    const Text('Action: ',
+                        style: TextStyle(fontWeight: FontWeight.w600)),
+                    ChoiceChip(
+                      label: const Text('✅ Confirm'),
+                      selected: action == 'confirmed',
+                      onSelected: (_) => setS(() => action = 'confirmed'),
+                      selectedColor: AppTheme.accent.withOpacity(0.2),
+                    ),
+                    ChoiceChip(
+                      label: const Text('✏️ Correct'),
+                      selected: action == 'corrected',
+                      onSelected: (_) => setS(() => action = 'corrected'),
+                      selectedColor: AppTheme.warning.withOpacity(0.2),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                if (action == 'corrected')
+                  TextField(
+                    controller: scoreCtrl,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(
+                      labelText: 'Corrected Score (0-10)',
+                      prefixIcon: Icon(Icons.edit),
+                    ),
                   ),
-                  const SizedBox(width: 6),
-                  SeverityBadge(assessment.severityLevel),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  const Text('Action: ',
-                      style: TextStyle(fontWeight: FontWeight.w600)),
-                  const SizedBox(width: 8),
-                  ChoiceChip(
-                    label: const Text('✅ Confirm'),
-                    selected: action == 'confirmed',
-                    onSelected: (_) => setS(() => action = 'confirmed'),
-                    selectedColor: AppTheme.accent.withOpacity(0.2),
-                  ),
-                  const SizedBox(width: 8),
-                  ChoiceChip(
-                    label: const Text('✏️ Correct'),
-                    selected: action == 'corrected',
-                    onSelected: (_) => setS(() => action = 'corrected'),
-                    selectedColor: AppTheme.warning.withOpacity(0.2),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              if (action == 'corrected')
+                const SizedBox(height: 8),
                 TextField(
-                  controller: scoreCtrl,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
+                  controller: noteCtrl,
+                  maxLines: 3,
                   decoration: const InputDecoration(
-                    labelText: 'Corrected Score (0-10)',
-                    prefixIcon: Icon(Icons.edit),
+                    labelText: 'Clinical Notes (optional)',
+                    prefixIcon: Icon(Icons.note_outlined),
                   ),
                 ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: noteCtrl,
-                maxLines: 3,
-                decoration: const InputDecoration(
-                  labelText: 'Clinical Notes (optional)',
-                  prefixIcon: Icon(Icons.note_outlined),
-                ),
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  icon: const Icon(Icons.send),
-                  label: Text(
-                    action == 'confirmed'
-                        ? 'Review again (Confirm)'
-                        : 'Review again (Correct)',
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: action == 'confirmed'
-                        ? AppTheme.accent
-                        : AppTheme.warning,
-                  ),
-                  onPressed: () async {
-                    double? correctedScoreValue;
-                    if (action == 'corrected') {
-                      final parsed = double.tryParse(scoreCtrl.text);
-                      if (parsed == null || parsed < 0 || parsed > 10) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Score must be between 0 and 10'),
-                            backgroundColor: Colors.red,
-                          ),
-                        );
-                        return;
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    icon: const Icon(Icons.send),
+                    label: Text(
+                      action == 'confirmed'
+                          ? 'Review again (Confirm)'
+                          : 'Review again (Correct)',
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: action == 'confirmed'
+                          ? AppTheme.accent
+                          : AppTheme.warning,
+                    ),
+                    onPressed: () async {
+                      double? correctedScoreValue;
+                      if (action == 'corrected') {
+                        final parsed = double.tryParse(scoreCtrl.text);
+                        if (parsed == null || parsed < 0 || parsed > 10) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Score must be between 0 and 10'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                          return;
+                        }
+                        correctedScoreValue = parsed;
                       }
-                      correctedScoreValue = parsed;
-                    }
 
-                    Navigator.pop(ctx);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          action == 'confirmed'
-                              ? 'Updating confirmation...'
-                              : 'Updating correction...',
+                      Navigator.pop(ctx);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            action == 'confirmed'
+                                ? 'Updating confirmation...'
+                                : 'Updating correction...',
+                          ),
+                          duration: const Duration(seconds: 2),
                         ),
-                        duration: const Duration(seconds: 2),
-                      ),
-                    );
-
-                    try {
-                      final result = await ApiService.reviewAssessment(
-                        assessment.id,
-                        status: action,
-                        note: noteCtrl.text.isNotEmpty ? noteCtrl.text : null,
-                        correctedScore: correctedScoreValue,
                       );
 
-                      if (!context.mounted) return;
-
-                      if (result['id'] != null) {
-                        widget.onRefresh();
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              action == 'confirmed'
-                                  ? 'Review updated (Confirmed).'
-                                  : 'Review updated (Corrected).',
-                            ),
-                            backgroundColor: AppTheme.accent,
-                          ),
+                      try {
+                        final result = await ApiService.reviewAssessment(
+                          assessment.id,
+                          status: action,
+                          note: noteCtrl.text.isNotEmpty ? noteCtrl.text : null,
+                          correctedScore: correctedScoreValue,
                         );
-                      } else {
+
+                        if (!context.mounted) return;
+
+                        if (result['id'] != null) {
+                          widget.onRefresh();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                action == 'confirmed'
+                                    ? 'Review updated (Confirmed).'
+                                    : 'Review updated (Corrected).',
+                              ),
+                              backgroundColor: AppTheme.accent,
+                            ),
+                          );
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                  'Error: ${result['error'] ?? 'Unknown error'}'),
+                              backgroundColor: AppTheme.danger,
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        if (!context.mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text(
-                                'Error: ${result['error'] ?? 'Unknown error'}'),
+                            content: Text('Error: $e'),
                             backgroundColor: AppTheme.danger,
                           ),
                         );
                       }
-                    } catch (e) {
-                      if (!context.mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Error: $e'),
-                          backgroundColor: AppTheme.danger,
-                        ),
-                      );
-                    }
-                  },
+                    },
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -1015,193 +1037,199 @@ class _PendingCard extends StatelessWidget {
             20,
             MediaQuery.of(ctx2).viewInsets.bottom + 20,
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Review Assessment',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 4),
-              Text('Activity: ${assessment.activityType}',
-                  style: const TextStyle(color: AppTheme.textSecondary)),
-              const Divider(height: 24),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade50,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('📝 Transcription',
-                        style: TextStyle(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 4),
-                    Text(assessment.audioTranscription,
-                        style: const TextStyle(fontSize: 13)),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-              if (assessment.aiAnalysis != null)
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Review Assessment',
+                    style:
+                        TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                Text('Activity: ${assessment.activityType}',
+                    style: const TextStyle(color: AppTheme.textSecondary)),
+                const Divider(height: 24),
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: AppTheme.primary.withOpacity(0.05),
+                    color: Colors.grey.shade50,
                     borderRadius: BorderRadius.circular(10),
-                    border:
-                        Border.all(color: AppTheme.primary.withOpacity(0.2)),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('🤖 AI Analysis',
-                          style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.primary)),
+                      const Text('📝 Transcription',
+                          style: TextStyle(fontWeight: FontWeight.bold)),
                       const SizedBox(height: 4),
-                      Text(assessment.aiAnalysis!,
+                      Text(assessment.audioTranscription,
                           style: const TextStyle(fontSize: 13)),
                     ],
                   ),
                 ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  const Text('AI Score: ',
-                      style: TextStyle(fontWeight: FontWeight.bold)),
-                  ScoreBadge(assessment.autismScore,
-                      correctedScore: assessment.correctedScore),
-                  const SizedBox(width: 6),
-                  SeverityBadge(assessment.severityLevel),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  const Text('Action: ',
-                      style: TextStyle(fontWeight: FontWeight.w600)),
-                  const SizedBox(width: 8),
-                  ChoiceChip(
-                    label: const Text('✅ Confirm'),
-                    selected: action == 'confirmed',
-                    onSelected: (_) => setS(() => action = 'confirmed'),
-                    selectedColor: AppTheme.accent.withOpacity(0.2),
+                const SizedBox(height: 12),
+                if (assessment.aiAnalysis != null)
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primary.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(10),
+                      border:
+                          Border.all(color: AppTheme.primary.withOpacity(0.2)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('🤖 AI Analysis',
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.primary)),
+                        const SizedBox(height: 4),
+                        Text(assessment.aiAnalysis!,
+                            style: const TextStyle(fontSize: 13)),
+                      ],
+                    ),
                   ),
-                  const SizedBox(width: 8),
-                  ChoiceChip(
-                    label: const Text('✏️ Correct'),
-                    selected: action == 'corrected',
-                    onSelected: (_) => setS(() => action = 'corrected'),
-                    selectedColor: AppTheme.warning.withOpacity(0.2),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    const Text('AI Score: ',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    ScoreBadge(assessment.autismScore,
+                        correctedScore: assessment.correctedScore),
+                    SeverityBadge(assessment.severityLevel),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    const Text('Action: ',
+                        style: TextStyle(fontWeight: FontWeight.w600)),
+                    ChoiceChip(
+                      label: const Text('✅ Confirm'),
+                      selected: action == 'confirmed',
+                      onSelected: (_) => setS(() => action = 'confirmed'),
+                      selectedColor: AppTheme.accent.withOpacity(0.2),
+                    ),
+                    ChoiceChip(
+                      label: const Text('✏️ Correct'),
+                      selected: action == 'corrected',
+                      onSelected: (_) => setS(() => action = 'corrected'),
+                      selectedColor: AppTheme.warning.withOpacity(0.2),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                if (action == 'corrected')
+                  TextField(
+                    controller: scoreCtrl,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(
+                      labelText: 'Corrected Score (0-10)',
+                      prefixIcon: Icon(Icons.edit),
+                    ),
                   ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              if (action == 'corrected')
+                const SizedBox(height: 8),
                 TextField(
-                  controller: scoreCtrl,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
+                  controller: noteCtrl,
+                  maxLines: 3,
                   decoration: const InputDecoration(
-                    labelText: 'Corrected Score (0-10)',
-                    prefixIcon: Icon(Icons.edit),
+                    labelText: 'Clinical Notes (optional)',
+                    prefixIcon: Icon(Icons.note_outlined),
                   ),
                 ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: noteCtrl,
-                maxLines: 3,
-                decoration: const InputDecoration(
-                  labelText: 'Clinical Notes (optional)',
-                  prefixIcon: Icon(Icons.note_outlined),
-                ),
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  icon: const Icon(Icons.send),
-                  label: Text(action == 'confirmed'
-                      ? 'Confirm & Notify Parent'
-                      : 'Submit Correction'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: action == 'confirmed'
-                        ? AppTheme.accent
-                        : AppTheme.warning,
-                  ),
-                  onPressed: () async {
-                    double? correctedScoreValue;
-                    if (action == 'corrected') {
-                      final parsed = double.tryParse(scoreCtrl.text);
-                      if (parsed == null || parsed < 0 || parsed > 10) {
-                        ScaffoldMessenger.of(ctx2).showSnackBar(
-                          const SnackBar(
-                            content: Text('Score must be between 0 and 10'),
-                            backgroundColor: Colors.red,
-                          ),
-                        );
-                        return;
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    icon: const Icon(Icons.send),
+                    label: Text(action == 'confirmed'
+                        ? 'Confirm & Notify Parent'
+                        : 'Submit Correction'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: action == 'confirmed'
+                          ? AppTheme.accent
+                          : AppTheme.warning,
+                    ),
+                    onPressed: () async {
+                      double? correctedScoreValue;
+                      if (action == 'corrected') {
+                        final parsed = double.tryParse(scoreCtrl.text);
+                        if (parsed == null || parsed < 0 || parsed > 10) {
+                          ScaffoldMessenger.of(ctx2).showSnackBar(
+                            const SnackBar(
+                              content: Text('Score must be between 0 and 10'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                          return;
+                        }
+                        correctedScoreValue = parsed;
                       }
-                      correctedScoreValue = parsed;
-                    }
 
-                    Navigator.pop(ctx2);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          action == 'confirmed'
-                              ? 'Confirming assessment...'
-                              : 'Applying correction...',
+                      Navigator.pop(ctx2);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            action == 'confirmed'
+                                ? 'Confirming assessment...'
+                                : 'Applying correction...',
+                          ),
+                          duration: const Duration(seconds: 2),
                         ),
-                        duration: const Duration(seconds: 2),
-                      ),
-                    );
-
-                    try {
-                      final result = await ApiService.reviewAssessment(
-                        assessment.id,
-                        status: action,
-                        note: noteCtrl.text.isNotEmpty ? noteCtrl.text : null,
-                        correctedScore: correctedScoreValue,
                       );
 
-                      if (!context.mounted) return;
-
-                      if (result['id'] != null) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              action == 'confirmed'
-                                  ? 'Assessment confirmed! Parent has been notified.'
-                                  : 'Score corrected! Parent has been notified.',
-                            ),
-                            backgroundColor: AppTheme.accent,
-                          ),
+                      try {
+                        final result = await ApiService.reviewAssessment(
+                          assessment.id,
+                          status: action,
+                          note: noteCtrl.text.isNotEmpty ? noteCtrl.text : null,
+                          correctedScore: correctedScoreValue,
                         );
-                        onReviewed?.call();
-                      } else {
+
+                        if (!context.mounted) return;
+
+                        if (result['id'] != null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                action == 'confirmed'
+                                    ? 'Assessment confirmed! Parent has been notified.'
+                                    : 'Score corrected! Parent has been notified.',
+                              ),
+                              backgroundColor: AppTheme.accent,
+                            ),
+                          );
+                          onReviewed?.call();
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                  'Error: ${result['error'] ?? 'Unknown error'}'),
+                              backgroundColor: AppTheme.danger,
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        if (!context.mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text(
-                                'Error: ${result['error'] ?? 'Unknown error'}'),
+                            content: Text('Error: $e'),
                             backgroundColor: AppTheme.danger,
                           ),
                         );
                       }
-                    } catch (e) {
-                      if (!context.mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Error: $e'),
-                          backgroundColor: AppTheme.danger,
-                        ),
-                      );
-                    }
-                  },
+                    },
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
