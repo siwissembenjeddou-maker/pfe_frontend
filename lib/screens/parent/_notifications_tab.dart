@@ -170,11 +170,32 @@ class _NotificationCardState extends State<_NotificationCard> {
                   message.split('\n\n').length > 1
                       ? message.split('\n\n').skip(1).join('\n\n')
                       : '',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: AppTheme.textSecondary,
                     fontSize: 13,
                     height: 1.4,
                   ),
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.chrome_reader_mode_outlined,
+                      size: 14,
+                      color: _getColor(_type).withValues(alpha: 0.7),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Tap to view full clinical report',
+                      style: TextStyle(
+                        color: _getColor(_type),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
                 ),
               ] else ...[
                 const SizedBox(height: 8),
@@ -330,6 +351,7 @@ class _NotificationCardState extends State<_NotificationCard> {
       'psychologist_report' => Icons.description,
       'message' => Icons.message,
       'reminder' => Icons.schedule,
+      'announcement' => Icons.campaign_rounded,
       _ => Icons.notification_important,
     };
   }
@@ -342,6 +364,7 @@ class _NotificationCardState extends State<_NotificationCard> {
       'psychologist_report' => const Color(0xFF8E44AD),
       'message' => Colors.green,
       'reminder' => Colors.orange,
+      'announcement' => Colors.teal,
       _ => Colors.grey,
     };
   }

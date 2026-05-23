@@ -13,7 +13,6 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _emailCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
-  String _selectedRole = 'parent';
   bool _isLoading = false;
   String? _error;
 
@@ -83,47 +82,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                       TextStyle(color: AppTheme.textSecondary)),
                               const SizedBox(height: 32),
 
-                              // Role Selector
-                              Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: Colors.grey.shade50,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Row(
-                                  children: [
-                                    const Icon(Icons.account_circle,
-                                        color: AppTheme.primary),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: DropdownButtonHideUnderline(
-                                        child: DropdownButton<String>(
-                                          value: _selectedRole,
-                                          items: const [
-                                            DropdownMenuItem(
-                                                value: 'parent',
-                                                child: Text('Parent')),
-                                            DropdownMenuItem(
-                                                value: 'psychologist',
-                                                child: Text('Psychologist')),
-                                            DropdownMenuItem(
-                                                value: 'educator',
-                                                child: Text('Educator')),
-                                            DropdownMenuItem(
-                                                value: 'admin',
-                                                child: Text('Admin')),
-                                          ],
-                                          onChanged: _isLoading
-                                              ? null
-                                              : (v) => setState(
-                                                  () => _selectedRole = v!),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 24),
+
 
                               // Email
                               TextField(
@@ -245,13 +204,14 @@ class _LoginScreenState extends State<LoginScreen> {
 
     final auth = context.read<AuthService>();
     final result =
-        await auth.login(_emailCtrl.text, _passCtrl.text, _selectedRole);
+        await auth.login(_emailCtrl.text, _passCtrl.text);
 
     setState(() => _isLoading = false);
 
     if (result['success']) {
+      final userRole = auth.currentUser?.role ?? '';
       final String route;
-      switch (_selectedRole) {
+      switch (userRole) {
         case 'parent':
           route = '/parent';
           break;

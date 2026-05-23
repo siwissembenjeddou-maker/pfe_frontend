@@ -15,6 +15,7 @@ import '_assessment_tab.dart';
 import '_results_tab.dart';
 import '_notifications_tab.dart';
 import '_solutions_wrapper.dart';
+import '_timeline_tab.dart';
 
 import 'solutions_screen.dart';
 import 'assessment_result_card.dart';
@@ -74,6 +75,61 @@ class _ParentScreenState extends State<ParentScreen> {
       _selectedChildForSolutions = child;
       _currentIndex = 3;
     });
+  }
+
+  void _showNotificationsBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.75,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        expand: false,
+        builder: (ctx, scrollController) => Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Column(
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Notifications',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Expanded(
+                child: NotificationsTab(
+                  getNotifications: () => _notifications,
+                  onRefresh: _loadData,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _showAddChildDialog() async {
@@ -164,8 +220,8 @@ class _ParentScreenState extends State<ParentScreen> {
         onChildChanged: (child) =>
             setState(() => _selectedChildForSolutions = child),
       ),
-      NotificationsTab(
-        getNotifications: () => _notifications,
+      TimelineTab(
+        getChildren: () => _children,
         onRefresh: _loadData,
       ),
     ];
@@ -193,7 +249,7 @@ class _ParentScreenState extends State<ParentScreen> {
             children: [
               IconButton(
                 icon: const Icon(Icons.notifications_outlined),
-                onPressed: () => setState(() => _currentIndex = 4),
+                onPressed: _showNotificationsBottomSheet,
               ),
               if (_notifications.any((n) => n['is_read'] == false))
                 Positioned(
@@ -213,9 +269,32 @@ class _ParentScreenState extends State<ParentScreen> {
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () async {
-              await context.read<AuthService>().logout();
-              if (!context.mounted) return;
-              Navigator.pushReplacementNamed(context, '/login');
+              final confirm = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('Confirm Logout'),
+                  content: const Text('Are you sure you want to log out of AutiSense?'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: const Text('Cancel'),
+                    ),
+                    ElevatedButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.danger,
+                      ),
+                      child: const Text('Logout'),
+                    ),
+                  ],
+                ),
+              );
+              if (confirm == true) {
+                if (!mounted) return;
+                await context.read<AuthService>().logout();
+                if (!context.mounted) return;
+                Navigator.pushReplacementNamed(context, '/login');
+              }
             },
           ),
         ],
@@ -249,9 +328,9 @@ class _ParentScreenState extends State<ParentScreen> {
             label: 'Solutions',
           ),
           NavigationDestination(
-            icon: Icon(Icons.notifications_outlined),
-            selectedIcon: Icon(Icons.notifications),
-            label: 'Alerts',
+            icon: Icon(Icons.show_chart_outlined),
+            selectedIcon: Icon(Icons.show_chart),
+            label: 'Timeline',
           ),
         ],
       ),

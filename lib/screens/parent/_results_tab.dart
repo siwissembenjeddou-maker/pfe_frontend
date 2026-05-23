@@ -208,9 +208,15 @@ class _ResultsTabState extends State<ResultsTab> {
                                     final corrected = assessment.correctedScore;
                                     final score =
                                         corrected ?? assessment.autismScore;
-                                    final suffix = corrected != null
-                                        ? ' (changed by the psychologist)'
-                                        : '';
+                                    final statusLower = assessment.status.toLowerCase();
+                                    final String suffix;
+                                    if (corrected != null || statusLower == 'corrected') {
+                                      suffix = ' (changed by the psychologist)';
+                                    } else if (statusLower == 'confirmed') {
+                                      suffix = ' (confirmed by the psychologist)';
+                                    } else {
+                                      suffix = '';
+                                    }
                                     return Text(
                                         // ignore: unnecessary_type_check
                                         '${(score is num) ? score.toDouble().toStringAsFixed(1) : (double.tryParse(score.toString())?.toStringAsFixed(1) ?? 0.0.toStringAsFixed(1))} score$suffix');

@@ -354,8 +354,32 @@ class _PsychologistScreenState extends State<PsychologistScreen> {
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () async {
-              await context.read<AuthService>().logout();
-              if (mounted) Navigator.pushReplacementNamed(context, '/login');
+              final confirm = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('Confirm Logout'),
+                  content: const Text('Are you sure you want to log out of AutiSense?'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: const Text('Cancel'),
+                    ),
+                    ElevatedButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.danger,
+                      ),
+                      child: const Text('Logout'),
+                    ),
+                  ],
+                ),
+              );
+              if (confirm == true) {
+                if (!mounted) return;
+                await context.read<AuthService>().logout();
+                if (!context.mounted) return;
+                Navigator.pushReplacementNamed(context, '/login');
+              }
             },
           ),
         ],
@@ -1351,11 +1375,71 @@ class _ReportTab extends StatefulWidget {
 class _ReportTabState extends State<_ReportTab> {
   final _reportCtrl = TextEditingController();
   bool _sending = false;
+  bool _loadingReport = false;
+  String? _loadedChildId;
+
+  @override
+  void initState() {
+    super.initState();
+  }
+
+  @override
+  void didUpdateWidget(_ReportTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.selectedChildId != oldWidget.selectedChildId) {
+      setState(() {
+        _loadedChildId = null;
+        _reportCtrl.clear();
+      });
+    }
+  }
 
   @override
   void dispose() {
     _reportCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadAIReport() async {
+    final childId = widget.selectedChildId;
+    if (childId == null) {
+      setState(() {
+        _loadedChildId = null;
+        _reportCtrl.clear();
+      });
+      return;
+    }
+
+    if (childId == _loadedChildId) {
+      return;
+    }
+
+    setState(() {
+      _loadingReport = true;
+      _loadedChildId = childId;
+      _reportCtrl.text = "Loading professional clinical child data & generating AI report...";
+    });
+
+    try {
+      final res = await ApiService.getChildReport(childId);
+      if (!mounted) return;
+
+      if (widget.selectedChildId == childId) {
+        final aiReport = res['ai_report'] as String?;
+        setState(() {
+          _reportCtrl.text = aiReport ?? "No report data could be loaded. Please record assessments for this child.";
+          _loadingReport = false;
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      if (widget.selectedChildId == childId) {
+        setState(() {
+          _reportCtrl.text = "Error loading/generating report: $e";
+          _loadingReport = false;
+        });
+      }
+    }
   }
 
   String get _psychologistName {
@@ -1411,11 +1495,14 @@ class _ReportTabState extends State<_ReportTab> {
     setState(() => _sending = true);
 
     try {
+      final prefix = "🧠 [Verified Clinical Progress Report]\n\n";
+      final contentToSend = prefix + _reportCtrl.text.trim();
+
       final result = await ApiService.sendChildReport(
         recipientId: _selectedParentId!,
         childId: _selectedChildId!,
         childName: _selectedChildName,
-        reportContent: _reportCtrl.text.trim(),
+        reportContent: contentToSend,
         psychologistName: _psychologistName,
         parentName: _selectedParentName,
       );
@@ -1424,13 +1511,15 @@ class _ReportTabState extends State<_ReportTab> {
 
       if (result['success'] == true) {
         _reportCtrl.clear();
+        _loadedChildId = null;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Report sent to parent successfully!'),
+            content: Text('Clinical progress report sent to parent successfully!'),
             backgroundColor: AppTheme.accent,
           ),
         );
         widget.onRefresh();
+        _loadAIReport();
       } else {
         final msg = result['message'] ?? 'Please try again.';
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1453,6 +1542,273 @@ class _ReportTabState extends State<_ReportTab> {
 
   @override
   Widget build(BuildContext context) {
+    if (_selectedChildId == null) {
+      return Container(
+        height: MediaQuery.of(context).size.height * 0.5,
+        alignment: Alignment.center,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: const BoxDecoration(
+                color: Color(0xFFE8F5E9),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.supervised_user_circle_outlined,
+                size: 64,
+                color: AppTheme.primary,
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Select a Child to Load AI Clinical Report',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Use the selector at the top of the screen to choose a child\nand automatically load their dynamic diagnostic report.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.grey.shade500,
+                height: 1.4,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_loadedChildId != _selectedChildId) {
+      final child = _selectedChild;
+      if (child == null) {
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.5,
+          alignment: Alignment.center,
+          child: const Text('Child not found.'),
+        );
+      }
+
+      final childAssessments = widget.allAssessments.where((a) => a.childId == child.id).toList();
+      final completedCount = childAssessments.length;
+      final scoreValues = childAssessments.map((a) => a.correctedScore ?? a.autismScore).toList();
+      final avgScore = scoreValues.isEmpty
+          ? 0.0
+          : scoreValues.reduce((b, a) => b + a) / scoreValues.length;
+
+      return SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            const SizedBox(height: 10),
+            // Child Info Card
+            Card(
+              elevation: 4,
+              shadowColor: AppTheme.primary.withValues(alpha: 0.15),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              child: Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(20),
+                  gradient: const LinearGradient(
+                    colors: [Colors.white, Color(0xFFF9FFF9)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    CircleAvatar(
+                      radius: 36,
+                      backgroundColor: AppTheme.primary.withValues(alpha: 0.1),
+                      child: Text(
+                        child.name.isNotEmpty ? child.name[0].toUpperCase() : 'C',
+                        style: const TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.primary,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      child.name,
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Age: ${child.age}  |  Gender: ${child.gender}',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
+                    const Divider(height: 28, thickness: 0.8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        Column(
+                          children: [
+                            Text(
+                              '$completedCount',
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.primary,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            const Text(
+                              'Assessments',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: AppTheme.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Container(height: 24, width: 1, color: Colors.grey[200]),
+                        Column(
+                          children: [
+                            Text(
+                              avgScore > 0 ? avgScore.toStringAsFixed(1) : '—',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: avgScore >= 6 ? AppTheme.danger : AppTheme.accent,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            const Text(
+                              'Avg Score',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: AppTheme.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 32),
+            
+            // Explanation/Info Section
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0FFF4),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFC2F0C2), width: 1),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.psychology, color: AppTheme.primary, size: 22),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'RAG Clinical AI Analysis',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.primary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    "Selecting 'Generate' triggers our advanced RAG Synthesis Engine to analyze child-specific scores, recorded activities (Playing, Reading, Drawing, Eating/Drinking, Writing, Social), transcription logs, and expert observations from the Autism Knowledge Base to construct a professional, comprehensive clinical progress report.",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      color: Colors.grey[700],
+                      height: 1.5,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 36),
+            
+            // Action Button to Generate
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primary,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  elevation: 2,
+                ),
+                icon: const Icon(Icons.psychology, color: Colors.white),
+                label: const Text(
+                  'Generate AI Clinical Report',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                onPressed: _loadAIReport,
+              ),
+            ),
+            const SizedBox(height: 20),
+          ],
+        ),
+      );
+    }
+
+    if (_loadingReport) {
+      return Container(
+        height: MediaQuery.of(context).size.height * 0.5,
+        alignment: Alignment.center,
+        child: const Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primary),
+            ),
+            SizedBox(height: 20),
+            Text(
+              'Synthesizing child details & assessments...',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.textPrimary,
+              ),
+            ),
+            SizedBox(height: 8),
+            Text(
+              'RAG Engine is constructing a full clinical progress report.',
+              style: TextStyle(
+                fontSize: 12,
+                color: AppTheme.textSecondary,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     final canSend = _selectedParentId != null &&
         _selectedChildId != null &&
         _reportCtrl.text.trim().isNotEmpty;
@@ -1463,7 +1819,7 @@ class _ReportTabState extends State<_ReportTab> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (_reportHeader != null) ...[
-            const SectionTitle('Parent Report'),
+            const SectionTitle('AI Clinical Report Workspace'),
             const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.all(16),
@@ -1502,15 +1858,14 @@ class _ReportTabState extends State<_ReportTab> {
                       ),
                     ),
                     child: const Text(
-                      'Tips for the psychologist:\n'
-                      '• Describe the observation in simple language ).\n'
-                      '• Explain the recommendation without medical jargon.\n'
-                      '• Highlight strengths + 1–3 clear next steps for the parent.\n'
-                      '• If you adjusted scores, briefly mention the clinical reasoning.',
+                      '🧠 Premium AI Clinical Report is ready.\n'
+                      '• Review the generated analysis in the workspace below.\n'
+                      '• Make any clinical edits directly in the text field if needed.\n'
+                      '• Tap SEND REPORT TO PARENT to dispatch the clinical progress report.',
                       style: TextStyle(
                         fontSize: 12,
                         color: Colors.white,
-                        height: 1.35,
+                        height: 1.45,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -1518,24 +1873,54 @@ class _ReportTabState extends State<_ReportTab> {
                 ],
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
           ],
           TextField(
             controller: _reportCtrl,
-            maxLines: 8,
-            decoration: const InputDecoration(
-              labelText: 'Write clinical report',
-              border: OutlineInputBorder(),
+            maxLines: 15,
+            style: const TextStyle(
+              fontSize: 14.5,
+              height: 1.4,
+              color: AppTheme.textPrimary,
+            ),
+            decoration: InputDecoration(
+              labelText: 'Clinical Report Workspace',
+              labelStyle: const TextStyle(fontWeight: FontWeight.w600),
+              alignLabelWithHint: true,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: AppTheme.primary, width: 2),
+              ),
             ),
           ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              icon: const Icon(Icons.send),
-              label: Text(_sending ? 'Sending...' : 'Send Report to Parent'),
-              onPressed: (canSend && !_sending) ? _sendReport : null,
-            ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primary,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  icon: const Icon(Icons.send_rounded, color: Colors.white),
+                  label: Text(
+                    _sending ? 'Sending...' : 'Send Report to Parent',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  onPressed: (canSend && !_sending) ? _sendReport : null,
+                ),
+              ),
+            ],
           ),
         ],
       ),

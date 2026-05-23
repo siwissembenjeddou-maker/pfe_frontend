@@ -39,13 +39,17 @@ class ApiService {
 
   // AUTH
   static Future<Map<String, dynamic>> login(
-      String email, String password, String role) async {
+      String email, String password, [String? role]) async {
     try {
       final res = await http
           .post(
         Uri.parse('$baseUrl/auth/login'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'email': email, 'password': password, 'role': role}),
+        body: jsonEncode({
+          'email': email,
+          'password': password,
+          if (role != null && role.isNotEmpty) 'role': role,
+        }),
       )
           .timeout(
         const Duration(seconds: 10),

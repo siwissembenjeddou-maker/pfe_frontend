@@ -69,8 +69,32 @@ class _EducatorScreenState extends State<EducatorScreen> {
           IconButton(
               icon: const Icon(Icons.logout),
               onPressed: () async {
-                await context.read<AuthService>().logout();
-                if (mounted) Navigator.pushReplacementNamed(context, '/login');
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text('Confirm Logout'),
+                    content: const Text('Are you sure you want to log out of AutiSense?'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx, false),
+                        child: const Text('Cancel'),
+                      ),
+                      ElevatedButton(
+                        onPressed: () => Navigator.pop(ctx, true),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.danger,
+                        ),
+                        child: const Text('Logout'),
+                      ),
+                    ],
+                  ),
+                );
+                if (confirm == true) {
+                  if (!mounted) return;
+                  await context.read<AuthService>().logout();
+                  if (!context.mounted) return;
+                  Navigator.pushReplacementNamed(context, '/login');
+                }
               }),
         ],
       ),

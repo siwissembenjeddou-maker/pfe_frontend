@@ -35,7 +35,7 @@ class AuthService extends ChangeNotifier {
   }
 
   Future<Map<String, dynamic>> login(
-      String email, String password, String role) async {
+      String email, String password, [String? role]) async {
     _isLoading = true;
     notifyListeners();
 

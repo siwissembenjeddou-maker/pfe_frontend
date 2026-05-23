@@ -170,6 +170,7 @@ class _AdminScreenState extends State<AdminScreen> {
         onFullReport: () => _showFullReport(context),
       ),
       _UserManagementTab(users: _users, onRefresh: _loadData),
+      const _AnnouncementsTab(),
       _SystemLogTab(),
     ];
 
@@ -188,10 +189,33 @@ class _AdminScreenState extends State<AdminScreen> {
           IconButton(
               icon: const Icon(Icons.logout),
               onPressed: () async {
-                final authService = context.read<AuthService>();
-                await authService.logout();
-                if (!context.mounted) return;
-                Navigator.pushReplacementNamed(context, '/login');
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text('Confirm Logout'),
+                    content: const Text(
+                        'Are you sure you want to log out of AutiSense Admin?'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx, false),
+                        child: const Text('Cancel'),
+                      ),
+                      ElevatedButton(
+                        onPressed: () => Navigator.pop(ctx, true),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.danger,
+                        ),
+                        child: const Text('Logout'),
+                      ),
+                    ],
+                  ),
+                );
+                if (confirm == true) {
+                  final authService = context.read<AuthService>();
+                  await authService.logout();
+                  if (!context.mounted) return;
+                  Navigator.pushReplacementNamed(context, '/login');
+                }
               }),
         ],
       ),
@@ -211,6 +235,10 @@ class _AdminScreenState extends State<AdminScreen> {
               icon: Icon(Icons.manage_accounts_outlined),
               selectedIcon: Icon(Icons.manage_accounts),
               label: 'Users'),
+          NavigationDestination(
+              icon: Icon(Icons.campaign_outlined),
+              selectedIcon: Icon(Icons.campaign),
+              label: 'Announcements'),
           NavigationDestination(
               icon: Icon(Icons.history_outlined),
               selectedIcon: Icon(Icons.history),
@@ -632,6 +660,307 @@ class _SystemLogTabState extends State<_SystemLogTab> {
                           color: AppTheme.textSecondary, fontSize: 11)),
                 ),
               )),
+        ],
+      ),
+    );
+  }
+}
+
+class _AnnouncementsTab extends StatefulWidget {
+  const _AnnouncementsTab();
+
+  @override
+  State<_AnnouncementsTab> createState() => _AnnouncementsTabState();
+}
+
+class _AnnouncementsTabState extends State<_AnnouncementsTab> {
+  final _titleCtrl = TextEditingController();
+  final _msgCtrl = TextEditingController();
+  String _category = 'Announcement';
+  bool _submitting = false;
+  List<dynamic> _announcements = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAnnouncements();
+  }
+
+  @override
+  void dispose() {
+    _titleCtrl.dispose();
+    _msgCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadAnnouncements() async {
+    try {
+      final notifs = await ApiService.getNotifications();
+      final filtered =
+          notifs.where((n) => n['type'] == 'announcement').toList();
+      if (mounted) {
+        setState(() {
+          _announcements = filtered;
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
+    }
+  }
+
+  Future<void> _broadcastAnnouncement() async {
+    final title = _titleCtrl.text.trim();
+    final message = _msgCtrl.text.trim();
+
+    if (title.isEmpty || message.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Please fill in all announcement fields.')),
+      );
+      return;
+    }
+
+    setState(() => _submitting = true);
+
+    try {
+      final fullTitle = '[$_category] $title';
+
+      final success = await ApiService.sendNotification(
+        recipientId: 'all',
+        title: fullTitle,
+        message: message,
+        type: 'announcement',
+      );
+
+      if (!mounted) return;
+
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content:
+                Text('📢 Announcement successfully broadcast to all users!'),
+            backgroundColor: Colors.teal,
+          ),
+        );
+        _titleCtrl.clear();
+        _msgCtrl.clear();
+        setState(() => _category = 'Announcement');
+        _loadAnnouncements();
+      } else {
+        throw Exception('Broadcast failed on the server.');
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to broadcast: ${e.toString()}')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _submitting = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return RefreshIndicator(
+      onRefresh: _loadAnnouncements,
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Card(
+            elevation: 3,
+            shadowColor: Colors.teal.withValues(alpha: 0.1),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.teal.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.campaign,
+                            color: Colors.teal, size: 24),
+                      ),
+                      const SizedBox(width: 12),
+                      const Text(
+                        'Broadcast New Announcement',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  DropdownButtonFormField<String>(
+                    value: _category,
+                    decoration: const InputDecoration(
+                      labelText: 'Announcement Category',
+                      border: OutlineInputBorder(),
+                      contentPadding:
+                          EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    ),
+                    items: const [
+                      DropdownMenuItem(
+                          value: 'Announcement',
+                          child: Text('📢 General Announcement')),
+                      DropdownMenuItem(
+                          value: 'Event',
+                          child: Text('📅 Special Event / Webinar')),
+                      DropdownMenuItem(
+                          value: 'Clinical News',
+                          child: Text('🧠 Clinical / Medical News')),
+                    ],
+                    onChanged: _submitting
+                        ? null
+                        : (val) {
+                            if (val != null) {
+                              setState(() => _category = val);
+                            }
+                          },
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: _titleCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Announcement Title',
+                      placeholder:
+                          'e.g. Weekly Activity Schedule / System Upgrade',
+                      border: OutlineInputBorder(),
+                    ),
+                    enabled: !_submitting,
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: _msgCtrl,
+                    maxLines: 4,
+                    decoration: const InputDecoration(
+                      labelText: 'Announcement Message',
+                      placeholder:
+                          'Write the details of the announcement here for all parents, psychologists, and educators...',
+                      border: OutlineInputBorder(),
+                      alignLabelWithHint: true,
+                    ),
+                    enabled: !_submitting,
+                  ),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.teal,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 2,
+                      ),
+                      icon: _submitting
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(Icons.campaign),
+                      label: Text(
+                        _submitting
+                            ? 'Broadcasting...'
+                            : 'Broadcast Announcement',
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 15),
+                      ),
+                      onPressed: _submitting ? null : _broadcastAnnouncement,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 28),
+          const SectionTitle('Broadcast History'),
+          const SizedBox(height: 12),
+          if (_loading)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 24),
+                child: CircularProgressIndicator(),
+              ),
+            )
+          else if (_announcements.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 32),
+              child: EmptyState(
+                icon: Icons.campaign_outlined,
+                message: 'No announcements broadcast yet.',
+              ),
+            )
+          else
+            ..._announcements.map((ann) {
+              final title = ann['title'] ?? 'Announcement';
+              final message = ann['message'] ?? '';
+              final dateStr = ann['created_at'] != null
+                  ? DateTime.parse(ann['created_at'].toString())
+                      .toLocal()
+                      .toString()
+                      .substring(0, 16)
+                  : '';
+
+              return Card(
+                margin: const EdgeInsets.only(bottom: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: Border.all(
+                      color: Colors.teal.withValues(alpha: 0.15), width: 1),
+                ),
+                child: ListTile(
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  leading: CircleAvatar(
+                    backgroundColor: Colors.teal.withValues(alpha: 0.1),
+                    child: const Icon(Icons.campaign, color: Colors.teal),
+                  ),
+                  title: Text(
+                    title,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 14),
+                  ),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 6),
+                      Text(
+                        message,
+                        style: const TextStyle(
+                            color: AppTheme.textSecondary, fontSize: 13),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        dateStr,
+                        style:
+                            const TextStyle(color: Colors.grey, fontSize: 10.5),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
         ],
       ),
     );
