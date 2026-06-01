@@ -534,9 +534,13 @@ class _UserManagementTab extends StatelessWidget {
               ]),
               const SizedBox(height: 8),
               if (roleUsers.isEmpty)
-                const EmptyState(
+                EmptyState(
                     icon: Icons.person_outline,
-                    message: 'No parents registered'),
+                    message: role == 'parent'
+                        ? 'No parents registered'
+                        : role == 'psychologist'
+                            ? 'No psychologists registered'
+                            : 'No educators registered'),
               ...roleUsers.map((u) => _UserCard(
                   user: u,
                   onDelete: () async {
@@ -646,20 +650,29 @@ class _SystemLogTabState extends State<_SystemLogTab> {
         padding: const EdgeInsets.all(16),
         children: [
           const SectionTitle('System Activity Logs'),
-          ..._logs.map((log) => Card(
-                margin: const EdgeInsets.only(bottom: 8),
-                child: ListTile(
-                  leading: const CircleAvatar(
-                      backgroundColor: Color(0xFFF5EEF8),
-                      child: Icon(Icons.history, color: Color(0xFF6C3483))),
-                  title: Text(log['event'] ?? ''),
-                  subtitle: Text('By: ${log['user_name'] ?? 'System'}'),
-                  trailing: Text(
-                      log['timestamp']?.toString().substring(0, 16) ?? '',
-                      style: const TextStyle(
-                          color: AppTheme.textSecondary, fontSize: 11)),
+          ..._logs.map((log) {
+            final tsRaw = log['timestamp']?.toString();
+            final ts = (tsRaw == null)
+                ? ''
+                : tsRaw.length >= 16
+                    ? tsRaw.substring(0, 16)
+                    : tsRaw;
+            return Card(
+              margin: const EdgeInsets.only(bottom: 8),
+              child: ListTile(
+                leading: const CircleAvatar(
+                    backgroundColor: Color(0xFFF5EEF8),
+                    child: Icon(Icons.history, color: Color(0xFF6C3483))),
+                title: Text(log['event'] ?? ''),
+                subtitle: Text('By: ${log['user_name'] ?? 'System'}'),
+                trailing: Text(
+                  ts,
+                  style: const TextStyle(
+                      color: AppTheme.textSecondary, fontSize: 11),
                 ),
-              )),
+              ),
+            );
+          }),
         ],
       ),
     );
@@ -837,7 +850,7 @@ class _AnnouncementsTabState extends State<_AnnouncementsTab> {
                     controller: _titleCtrl,
                     decoration: const InputDecoration(
                       labelText: 'Announcement Title',
-                      placeholder:
+                      hintText:
                           'e.g. Weekly Activity Schedule / System Upgrade',
                       border: OutlineInputBorder(),
                     ),
@@ -849,7 +862,7 @@ class _AnnouncementsTabState extends State<_AnnouncementsTab> {
                     maxLines: 4,
                     decoration: const InputDecoration(
                       labelText: 'Announcement Message',
-                      placeholder:
+                      hintText:
                           'Write the details of the announcement here for all parents, psychologists, and educators...',
                       border: OutlineInputBorder(),
                       alignLabelWithHint: true,
@@ -926,8 +939,7 @@ class _AnnouncementsTabState extends State<_AnnouncementsTab> {
                 margin: const EdgeInsets.only(bottom: 12),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
-                  side: Border.all(
-                      color: Colors.teal.withValues(alpha: 0.15), width: 1),
+                  side: const BorderSide(color: Colors.teal, width: 1),
                 ),
                 child: ListTile(
                   contentPadding:
