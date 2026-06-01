@@ -8,6 +8,9 @@ import 'screens/admin/admin_screen.dart';
 import 'screens/educator/educator_screen.dart';
 import 'services/auth_service.dart';
 import 'services/api_service.dart';
+import 'screens/verify_reset_code_screen.dart';
+import 'screens/reset_password_screen.dart';
+import 'screens/forgot_password_screen.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
@@ -52,6 +55,18 @@ class AutiSenseApp extends StatelessWidget {
         '/psychologist': (_) => const PsychologistScreen(),
         '/educator': (_) => const EducatorScreen(),
         '/admin': (_) => const AdminScreen(),
+        '/forgot-password': (_) => const ForgotPasswordScreen(),
+        '/verify-reset-code': (context) {
+          final args = ModalRoute.of(context)!.settings.arguments as String;
+          return VerifyResetCodeScreen(email: args);
+        },
+        '/reset-password': (context) {
+          final args = ModalRoute.of(context)!.settings.arguments as Map;
+          return ResetPasswordScreen(
+            email: args['email'] as String,
+            code: args['code'] as String,
+          );
+        },
       },
     );
   }

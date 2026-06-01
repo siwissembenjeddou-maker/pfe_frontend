@@ -250,8 +250,8 @@ class _LoginScreenState extends State<LoginScreen>
                                   child: TextButton(
                                     onPressed: _isLoading
                                         ? null
-                                        : () => Navigator.pushNamed(
-                                            context, '/forgot-password'),
+                                        : () => Navigator.of(context)
+                                            .pushNamed('/forgot-password'),
                                     child: const Text(
                                       'Forgot your password?',
                                       style: TextStyle(

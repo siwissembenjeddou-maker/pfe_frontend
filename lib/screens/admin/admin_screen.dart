@@ -22,7 +22,11 @@ class AdminScreen extends StatefulWidget {
 
 class _AdminScreenState extends State<AdminScreen> {
   int _currentIndex = 0;
-  Map<String, List<dynamic>> _users = {'parent': [], 'psychologist': []};
+  Map<String, List<dynamic>> _users = {
+    'parent': [],
+    'psychologist': [],
+    'educator': []
+  };
   List<dynamic> _children = [];
   bool _loading = true;
 
@@ -97,6 +101,7 @@ class _AdminScreenState extends State<AdminScreen> {
                     style: TextStyle(fontWeight: FontWeight.bold)),
                 _reportStat('Parents', stats['total_parents']),
                 _reportStat('Psychologists', stats['total_psychologists']),
+                _reportStat('Educators', stats['total_educators']),
                 const SizedBox(height: 12),
                 const Text('Severity breakdown',
                     style: TextStyle(fontWeight: FontWeight.bold)),
@@ -141,11 +146,16 @@ class _AdminScreenState extends State<AdminScreen> {
   Future<void> _loadData() async {
     final parents = await ApiService.getAllUsers(role: 'parent') ?? [];
     final psychs = await ApiService.getAllUsers(role: 'psychologist') ?? [];
+    final educators = await ApiService.getAllUsers(role: 'educator') ?? [];
     final children = await ApiService.getChildren() ?? [];
 
     if (mounted) {
       setState(() {
-        _users = {'parent': parents, 'psychologist': psychs};
+        _users = {
+          'parent': parents,
+          'psychologist': psychs,
+          'educator': educators
+        };
         _children = children;
         _loading = false;
       });
@@ -379,6 +389,7 @@ class _AdminDashboard extends StatelessWidget {
     final totalUsers = users.values.fold(0, (s, l) => s + (l.length));
     final parentCount = users['parent']?.length ?? 0;
     final psychCount = users['psychologist']?.length ?? 0;
+    final educatorCount = users['educator']?.length ?? 0;
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -400,6 +411,7 @@ class _AdminDashboard extends StatelessWidget {
               _AdminStat(label: 'Total Users', value: '$totalUsers'),
               _AdminStat(label: 'Children', value: '${children.length}'),
               _AdminStat(label: 'Psychologists', value: '$psychCount'),
+              _AdminStat(label: 'Educators', value: '$educatorCount'),
             ]),
           ]),
         ),
@@ -420,6 +432,11 @@ class _AdminDashboard extends StatelessWidget {
                     value: psychCount.toDouble(),
                     title: 'Psychs\n$psychCount',
                     color: AppTheme.accent,
+                    radius: 80),
+                PieChartSectionData(
+                    value: educatorCount.toDouble(),
+                    title: 'Educators\n$educatorCount',
+                    color: AppTheme.warning,
                     radius: 80),
               ], sectionsSpace: 4, centerSpaceRadius: 20))),
         )),
@@ -505,15 +522,16 @@ class _UserManagementTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 2,
+      length: 3,
       child: Column(children: [
-        const TabBar(
-            tabs: [Tab(text: 'Parents'), Tab(text: 'Psychologists')],
-            labelColor: Color(0xFF6C3483),
-            indicatorColor: Color(0xFF6C3483)),
+        const TabBar(tabs: [
+          Tab(text: 'Parents'),
+          Tab(text: 'Psychologists'),
+          Tab(text: 'Educators')
+        ], labelColor: Color(0xFF6C3483), indicatorColor: Color(0xFF6C3483)),
         Expanded(
             child: TabBarView(
-                children: ['parent', 'psychologist'].map((role) {
+                children: ['parent', 'psychologist', 'educator'].map((role) {
           final roleUsers = users[role] ?? [];
           return ListView(
             padding: const EdgeInsets.all(16),
@@ -536,7 +554,9 @@ class _UserManagementTab extends StatelessWidget {
                     icon: Icons.person_outline,
                     message: role == 'parent'
                         ? 'No parents registered'
-                        : 'No psychologists registered'),
+                        : role == 'psychologist'
+                            ? 'No psychologists registered'
+                            : 'No educators registered'),
               ...roleUsers.map((u) => _UserCard(
                   user: u,
                   onDelete: () async {
@@ -1039,7 +1059,7 @@ class _AnnouncementsTabState extends State<_AnnouncementsTab> {
                     decoration: const InputDecoration(
                       labelText: 'Announcement Message',
                       hintText:
-                          'Write the details of the announcement here for all parents and psychologists...',
+                          'Write the details of the announcement here for all parents, psychologists, and educators...',
                       border: OutlineInputBorder(),
                       alignLabelWithHint: true,
                     ),

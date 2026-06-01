@@ -4,7 +4,6 @@ import '../services/api_service.dart';
 
 class VerifyResetCodeScreen extends StatefulWidget {
   final String email;
-
   const VerifyResetCodeScreen({super.key, required this.email});
 
   @override
@@ -27,7 +26,6 @@ class _VerifyResetCodeScreenState extends State<VerifyResetCodeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Back button
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Container(
@@ -42,8 +40,6 @@ class _VerifyResetCodeScreenState extends State<VerifyResetCodeScreen> {
                   ),
                 ),
                 const SizedBox(height: 40),
-
-                // Header section
                 Container(
                   padding: const EdgeInsets.all(40),
                   decoration: BoxDecoration(
@@ -67,30 +63,34 @@ class _VerifyResetCodeScreenState extends State<VerifyResetCodeScreen> {
                             )
                           ],
                         ),
-                        child: const Icon(Icons.verified_user,
+                        child: const Icon(Icons.verified,
                             size: 56, color: Colors.white),
                       ),
                       const SizedBox(height: 24),
-                      const Text('Verify Your Code',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 32,
-                              fontWeight: FontWeight.w900,
-                              height: 1.2)),
+                      Text(
+                        'Verify Code',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 32,
+                          fontWeight: FontWeight.w900,
+                          height: 1.2,
+                        ),
+                      ),
                       const SizedBox(height: 12),
                       Text(
-                        'We sent a verification code to ${widget.email}',
+                        'Enter the 6-digit code sent to\n${widget.email}',
                         textAlign: TextAlign.center,
                         style: const TextStyle(
-                            color: Colors.white70, fontSize: 16, height: 1.5),
+                          color: Colors.white70,
+                          fontSize: 16,
+                          height: 1.5,
+                        ),
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 40),
-
-                // Form section
                 Container(
                   padding: const EdgeInsets.all(32),
                   decoration: BoxDecoration(
@@ -107,41 +107,38 @@ class _VerifyResetCodeScreenState extends State<VerifyResetCodeScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      const Text('Enter Verification Code',
-                          style: TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.textPrimary)),
+                      const Text(
+                        'Verification Code',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
                       const SizedBox(height: 8),
                       const Text(
-                        'Check your email for the 6-digit code (expires in 10 minutes).',
+                        'Code is valid for 10 minutes.',
                         style: TextStyle(
-                            color: AppTheme.textSecondary, fontSize: 14),
+                          color: AppTheme.textSecondary,
+                          fontSize: 14,
+                        ),
                       ),
                       const SizedBox(height: 28),
-
-                      // Code field
                       TextField(
                         controller: _codeCtrl,
                         keyboardType: TextInputType.number,
                         maxLength: 6,
-                        textAlign: TextAlign.center,
                         decoration: InputDecoration(
-                          labelText: 'Verification Code',
-                          counterText: '',
+                          labelText: '6-digit code',
+                          prefixIcon: const Icon(Icons.pin),
                           contentPadding: const EdgeInsets.symmetric(
                               horizontal: 20, vertical: 20),
                           labelStyle: const TextStyle(fontSize: 16),
                         ),
                         enabled: !_isLoading,
-                        style: const TextStyle(
-                            fontSize: 32,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 8),
+                        style: const TextStyle(fontSize: 18),
                       ),
                       const SizedBox(height: 20),
-
-                      // Error message
                       if (_error != null) ...[
                         Container(
                           padding: const EdgeInsets.all(18),
@@ -149,8 +146,7 @@ class _VerifyResetCodeScreenState extends State<VerifyResetCodeScreen> {
                             color: AppTheme.danger.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(
-                              color: AppTheme.danger.withValues(alpha: 0.25),
-                            ),
+                                color: AppTheme.danger.withValues(alpha: 0.25)),
                           ),
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -159,19 +155,20 @@ class _VerifyResetCodeScreenState extends State<VerifyResetCodeScreen> {
                                   color: AppTheme.danger, size: 24),
                               const SizedBox(width: 14),
                               Expanded(
-                                child: Text(_error!,
-                                    style: TextStyle(
-                                        color: AppTheme.danger,
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w500)),
+                                child: Text(
+                                  _error!,
+                                  style: TextStyle(
+                                    color: AppTheme.danger,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
                               ),
                             ],
                           ),
                         ),
                         const SizedBox(height: 20),
                       ],
-
-                      // Verify button
                       SizedBox(
                         height: 66,
                         child: ElevatedButton.icon(
@@ -182,8 +179,7 @@ class _VerifyResetCodeScreenState extends State<VerifyResetCodeScreen> {
                                   child: CircularProgressIndicator(
                                       strokeWidth: 2.5, color: Colors.white),
                                 )
-                              : const Icon(Icons.check_circle_outline,
-                                  size: 28),
+                              : const Icon(Icons.verified_outlined, size: 28),
                           label: Text(
                             _isLoading ? 'Verifying...' : 'Verify Code',
                             style: const TextStyle(
@@ -197,18 +193,17 @@ class _VerifyResetCodeScreenState extends State<VerifyResetCodeScreen> {
                               borderRadius: BorderRadius.circular(18),
                             ),
                           ),
-                          onPressed: _isLoading ? null : _verifyCode,
+                          onPressed: _isLoading ? null : _verify,
                         ),
                       ),
                       const SizedBox(height: 20),
-
-                      // Back button
                       TextButton(
                         onPressed: _isLoading
                             ? null
-                            : () => Navigator.of(context).pop(),
+                            : () => Navigator.of(context)
+                                .popUntil((r) => r.isFirst),
                         child: const Text(
-                          'Back',
+                          'Back to Sign In',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
@@ -227,9 +222,14 @@ class _VerifyResetCodeScreenState extends State<VerifyResetCodeScreen> {
     );
   }
 
-  Future<void> _verifyCode() async {
-    if (_codeCtrl.text.isEmpty || _codeCtrl.text.length != 6) {
-      setState(() => _error = 'Please enter a valid 6-digit code');
+  Future<void> _verify() async {
+    final code = _codeCtrl.text.trim();
+    if (code.isEmpty) {
+      setState(() => _error = 'Please enter the verification code');
+      return;
+    }
+    if (code.length != 6) {
+      setState(() => _error = 'Code must be exactly 6 digits');
       return;
     }
 
@@ -238,24 +238,28 @@ class _VerifyResetCodeScreenState extends State<VerifyResetCodeScreen> {
       _error = null;
     });
 
-    final result =
-        await ApiService.verifyResetCode(widget.email, _codeCtrl.text);
+    final result = await ApiService.verifyResetCode(
+      email: widget.email,
+      code: code,
+    );
 
-    if (mounted) {
-      setState(() => _isLoading = false);
+    if (!mounted) return;
 
-      if (result['success']) {
-        if (mounted) {
-          Navigator.pushReplacementNamed(
-            context,
-            '/reset-password',
-            arguments: {'email': widget.email, 'code': _codeCtrl.text},
-          );
-        }
-      } else {
-        setState(() => _error =
-            result['message'] ?? 'Invalid or expired verification code');
-      }
+    setState(() => _isLoading = false);
+
+    if (result['success'] == true) {
+      Navigator.pushReplacementNamed(
+        context,
+        '/reset-password',
+        arguments: {
+          'email': widget.email,
+          'code': code,
+        },
+      );
+    } else {
+      setState(() {
+        _error = result['message'] ?? 'Failed to verify code';
+      });
     }
   }
 

@@ -45,6 +45,105 @@ class ApiService {
   }
 
   // AUTH
+
+  static Future<Map<String, dynamic>> forgotPassword(String email) async {
+    try {
+      final res = await http
+          .post(
+        Uri.parse('$baseUrl/auth/forgot-password/'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'email': email}),
+      )
+          .timeout(const Duration(seconds: 10), onTimeout: () {
+        throw Exception('Server is not responding. Check your backend.');
+      });
+
+      try {
+        final data = jsonDecode(res.body);
+        return {
+          'success': res.statusCode >= 200 && res.statusCode < 300,
+          ...data
+        };
+      } catch (_) {
+        return {
+          'success': false,
+          'message': 'Unexpected response format from server (not JSON).',
+          'statusCode': res.statusCode,
+        };
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Connection error: $e'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> verifyResetCode(
+      {required String email, required String code}) async {
+    try {
+      final res = await http
+          .post(
+        Uri.parse('$baseUrl/auth/verify-reset-code/'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'email': email, 'code': code}),
+      )
+          .timeout(const Duration(seconds: 10), onTimeout: () {
+        throw Exception('Server is not responding. Check your backend.');
+      });
+
+      try {
+        final data = jsonDecode(res.body);
+        return {
+          'success': res.statusCode >= 200 && res.statusCode < 300,
+          ...data
+        };
+      } catch (_) {
+        return {
+          'success': false,
+          'message': 'Unexpected response format from server (not JSON).',
+          'statusCode': res.statusCode,
+        };
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Connection error: $e'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> resetPassword(
+      {required String email,
+      required String code,
+      required String newPassword}) async {
+    try {
+      final res = await http
+          .post(
+        Uri.parse('$baseUrl/auth/reset-password/'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'email': email,
+          'code': code,
+          'new_password': newPassword,
+        }),
+      )
+          .timeout(const Duration(seconds: 10), onTimeout: () {
+        throw Exception('Server is not responding. Check your backend.');
+      });
+
+      try {
+        final data = jsonDecode(res.body);
+        return {
+          'success': res.statusCode >= 200 && res.statusCode < 300,
+          ...data
+        };
+      } catch (_) {
+        return {
+          'success': false,
+          'message': 'Unexpected response format from server (not JSON).',
+          'statusCode': res.statusCode,
+        };
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Connection error: $e'};
+    }
+  }
+
   static Future<Map<String, dynamic>> login(String email, String password,
       [String? role]) async {
     try {
