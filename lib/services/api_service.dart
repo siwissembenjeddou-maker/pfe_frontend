@@ -651,12 +651,24 @@ class ApiService {
 
   static Future<void> deleteUser(Object userId) async {
     final headers = await _headers();
+
     final res = await http.delete(
-        Uri.parse('$baseUrl/users/${userId.toString()}'),
-        headers: headers);
+      Uri.parse('$baseUrl/users/${userId.toString()}/'),
+      headers: headers,
+    );
+
     _check401(res.statusCode);
+
     if (res.statusCode != 200 && res.statusCode != 204) {
-      throw Exception('Failed to delete user: ${res.statusCode} ${res.body}');
+      // If backend returns HTML (Django error page / permission page), avoid dumping it to the UI.
+      final body = res.body.trim();
+      final isHtml = body.isNotEmpty && body.startsWith('<');
+      final message = isHtml
+          ? 'Server error (${res.statusCode}). Please check backend logs.'
+          : body.length > 500
+              ? body.substring(0, 500) + '...'
+              : body;
+      throw Exception('Failed to delete user: ${res.statusCode} $message');
     }
   }
 }

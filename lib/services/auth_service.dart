@@ -34,8 +34,8 @@ class AuthService extends ChangeNotifier {
     }
   }
 
-  Future<Map<String, dynamic>> login(
-      String email, String password, [String? role]) async {
+  Future<Map<String, dynamic>> login(String email, String password,
+      [String? role]) async {
     _isLoading = true;
     notifyListeners();
 
@@ -43,14 +43,23 @@ class AuthService extends ChangeNotifier {
       final result = await ApiService.login(email, password, role);
       debugPrint('FULL LOGIN DATA: $result');
       debugPrint('USER OBJECT: ${result['user']}');
-      debugPrint('TOKEN FROM RESPONSE: ${result['user']?['token']}');
       if (result['success']) {
         final prefs = await SharedPreferences.getInstance();
-        final token = result['token'] ??
-            result['access'] ??
-            result['user']?['token'] ??
-            '';
+
+        // ┌─ Extract JWT Token (consistent format from backend)
+        // Backend should return in order of preference: token > access > user.token
+        // This is a fallback chain for compatibility with different API versions
+        final token = _extractToken(result);
         debugPrint('TOKEN EXTRACTED: "$token"');
+
+        if (token.isEmpty) {
+          debugPrint('ERROR: No token found in login response');
+          return {
+            'success': false,
+            'message': 'No authentication token received'
+          };
+        }
+
         await prefs.setString('token', token);
         await prefs.setString('user', jsonEncode(result['user']));
         try {
@@ -65,6 +74,16 @@ class AuthService extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  /// Extract JWT token from API response with consistent fallback chain
+  String _extractToken(Map<String, dynamic> response) {
+    // Try standard formats in order of preference
+    return (response['token'] as String?) ??
+        (response['access'] as String?) ??
+        (response['access_token'] as String?) ??
+        (response['user']?['token'] as String?) ??
+        '';
   }
 
   Future<Map<String, dynamic>> register({
@@ -85,10 +104,16 @@ class AuthService extends ChangeNotifier {
       );
       if (result['success']) {
         final prefs = await SharedPreferences.getInstance();
-        final token = result['token'] ??
-            result['access'] ??
-            result['user']?['token'] ??
-            '';
+        final token = _extractToken(result);
+
+        if (token.isEmpty) {
+          debugPrint('ERROR: No token found in register response');
+          return {
+            'success': false,
+            'message': 'No authentication token received'
+          };
+        }
+
         await prefs.setString('token', token);
         await prefs.setString('user', jsonEncode(result['user']));
         try {
