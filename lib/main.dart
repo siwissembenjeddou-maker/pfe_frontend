@@ -5,7 +5,6 @@ import 'screens/signup_screen.dart';
 import 'screens/parent/parent_screen.dart';
 import 'screens/psychologist/psychologist_screen.dart';
 import 'screens/admin/admin_screen.dart';
-import 'screens/educator/educator_screen.dart';
 import 'services/auth_service.dart';
 import 'services/api_service.dart';
 
@@ -50,7 +49,6 @@ class AutiSenseApp extends StatelessWidget {
         '/signup': (_) => const SignupScreen(),
         '/parent': (_) => const ParentScreen(),
         '/psychologist': (_) => const PsychologistScreen(),
-        '/educator': (_) => const EducatorScreen(),
         '/admin': (_) => const AdminScreen(),
       },
     );

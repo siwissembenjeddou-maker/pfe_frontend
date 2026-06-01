@@ -8,6 +8,7 @@ import '../../models/models.dart';
 import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
 import '../../widgets/common_widgets.dart';
+import '../../widgets/edit_profile_dialog.dart';
 
 class EducatorScreen extends StatefulWidget {
   const EducatorScreen({super.key});
@@ -65,6 +66,18 @@ class _EducatorScreenState extends State<EducatorScreen> {
         ]),
         backgroundColor: const Color(0xFFFFF8F0),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.edit),
+            onPressed: () async {
+              final updated = await showDialog<bool>(
+                context: context,
+                builder: (_) => const EditProfileDialog(),
+              );
+              if (updated == true) {
+                await _loadData();
+              }
+            },
+          ),
           IconButton(icon: const Icon(Icons.refresh), onPressed: _loadData),
           IconButton(
               icon: const Icon(Icons.logout),
@@ -73,7 +86,8 @@ class _EducatorScreenState extends State<EducatorScreen> {
                   context: context,
                   builder: (ctx) => AlertDialog(
                     title: const Text('Confirm Logout'),
-                    content: const Text('Are you sure you want to log out of AutiSense?'),
+                    content: const Text(
+                        'Are you sure you want to log out of AutiSense?'),
                     actions: [
                       TextButton(
                         onPressed: () => Navigator.pop(ctx, false),

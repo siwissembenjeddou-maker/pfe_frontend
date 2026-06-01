@@ -16,6 +16,7 @@ import '_results_tab.dart';
 import '_notifications_tab.dart';
 import '_solutions_wrapper.dart';
 import '_timeline_tab.dart';
+import '../../widgets/edit_profile_dialog.dart';
 
 import 'solutions_screen.dart';
 import 'assessment_result_card.dart';
@@ -103,13 +104,15 @@ class _ParentScreenState extends State<ParentScreen> {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const Text(
                       'Notifications',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                     IconButton(
                       icon: const Icon(Icons.close),
@@ -267,13 +270,26 @@ class _ParentScreenState extends State<ParentScreen> {
             ],
           ),
           IconButton(
+            icon: const Icon(Icons.edit),
+            onPressed: () async {
+              final updated = await showDialog<bool>(
+                context: context,
+                builder: (_) => const EditProfileDialog(),
+              );
+              if (updated == true) {
+                await _loadData();
+              }
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () async {
               final confirm = await showDialog<bool>(
                 context: context,
                 builder: (ctx) => AlertDialog(
                   title: const Text('Confirm Logout'),
-                  content: const Text('Are you sure you want to log out of AutiSense?'),
+                  content: const Text(
+                      'Are you sure you want to log out of AutiSense?'),
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.pop(ctx, false),

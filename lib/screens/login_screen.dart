@@ -82,8 +82,6 @@ class _LoginScreenState extends State<LoginScreen> {
                                       TextStyle(color: AppTheme.textSecondary)),
                               const SizedBox(height: 32),
 
-
-
                               // Email
                               TextField(
                                 controller: _emailCtrl,
@@ -203,8 +201,7 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     final auth = context.read<AuthService>();
-    final result =
-        await auth.login(_emailCtrl.text, _passCtrl.text);
+    final result = await auth.login(_emailCtrl.text, _passCtrl.text);
 
     setState(() => _isLoading = false);
 
@@ -217,9 +214,6 @@ class _LoginScreenState extends State<LoginScreen> {
           break;
         case 'psychologist':
           route = '/psychologist';
-          break;
-        case 'educator':
-          route = '/educator';
           break;
         case 'admin':
           route = '/admin';

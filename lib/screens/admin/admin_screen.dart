@@ -12,6 +12,7 @@ import '../../services/auth_service.dart';
 import '../../services/api_service.dart';
 import '../../widgets/common_widgets.dart';
 import '../../utils/backup_io.dart';
+import '../../widgets/edit_profile_dialog.dart';
 
 class AdminScreen extends StatefulWidget {
   const AdminScreen({super.key});
@@ -21,11 +22,7 @@ class AdminScreen extends StatefulWidget {
 
 class _AdminScreenState extends State<AdminScreen> {
   int _currentIndex = 0;
-  Map<String, List<dynamic>> _users = {
-    'parent': [],
-    'psychologist': [],
-    'educator': []
-  };
+  Map<String, List<dynamic>> _users = {'parent': [], 'psychologist': []};
   List<dynamic> _children = [];
   bool _loading = true;
 
@@ -89,24 +86,26 @@ class _AdminScreenState extends State<AdminScreen> {
         builder: (_) => AlertDialog(
           title: const Text('System Report'),
           content: SingleChildScrollView(
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              _reportStat('Total children', stats['total_children']),
-              _reportStat('Total assessments', stats['total_assessments']),
-              _reportStat('Pending reviews', stats['pending_reviews']),
-              const SizedBox(height: 12),
-              const Text('Users',
-                  style: TextStyle(fontWeight: FontWeight.bold)),
-              _reportStat('Parents', stats['total_parents']),
-              _reportStat('Psychologists', stats['total_psychologists']),
-              _reportStat('Educators', stats['total_educators']),
-              const SizedBox(height: 12),
-              const Text('Severity breakdown',
-                  style: TextStyle(fontWeight: FontWeight.bold)),
-              _reportStat('Mild', stats['severity_breakdown']?['mild']),
-              _reportStat('Moderate', stats['severity_breakdown']?['moderate']),
-              _reportStat('Severe', stats['severity_breakdown']?['severe']),
-            ]),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _reportStat('Total children', stats['total_children']),
+                _reportStat('Total assessments', stats['total_assessments']),
+                _reportStat('Pending reviews', stats['pending_reviews']),
+                const SizedBox(height: 12),
+                const Text('Users',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
+                _reportStat('Parents', stats['total_parents']),
+                _reportStat('Psychologists', stats['total_psychologists']),
+                const SizedBox(height: 12),
+                const Text('Severity breakdown',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
+                _reportStat('Mild', stats['severity_breakdown']?['mild']),
+                _reportStat(
+                    'Moderate', stats['severity_breakdown']?['moderate']),
+                _reportStat('Severe', stats['severity_breakdown']?['severe']),
+              ],
+            ),
           ),
           actions: [
             TextButton(
@@ -142,16 +141,11 @@ class _AdminScreenState extends State<AdminScreen> {
   Future<void> _loadData() async {
     final parents = await ApiService.getAllUsers(role: 'parent') ?? [];
     final psychs = await ApiService.getAllUsers(role: 'psychologist') ?? [];
-    final educators = await ApiService.getAllUsers(role: 'educator') ?? [];
     final children = await ApiService.getChildren() ?? [];
 
     if (mounted) {
       setState(() {
-        _users = {
-          'parent': parents,
-          'psychologist': psychs,
-          'educator': educators
-        };
+        _users = {'parent': parents, 'psychologist': psychs};
         _children = children;
         _loading = false;
       });
@@ -185,6 +179,18 @@ class _AdminScreenState extends State<AdminScreen> {
         ]),
         backgroundColor: const Color.fromARGB(255, 43, 109, 208),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.edit),
+            onPressed: () async {
+              final updated = await showDialog<bool>(
+                context: context,
+                builder: (_) => const EditProfileDialog(),
+              );
+              if (updated == true) {
+                await _loadData();
+              }
+            },
+          ),
           IconButton(icon: const Icon(Icons.refresh), onPressed: _loadData),
           IconButton(
               icon: const Icon(Icons.logout),
@@ -373,7 +379,6 @@ class _AdminDashboard extends StatelessWidget {
     final totalUsers = users.values.fold(0, (s, l) => s + (l.length));
     final parentCount = users['parent']?.length ?? 0;
     final psychCount = users['psychologist']?.length ?? 0;
-    final educatorCount = users['educator']?.length ?? 0;
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -395,7 +400,6 @@ class _AdminDashboard extends StatelessWidget {
               _AdminStat(label: 'Total Users', value: '$totalUsers'),
               _AdminStat(label: 'Children', value: '${children.length}'),
               _AdminStat(label: 'Psychologists', value: '$psychCount'),
-              _AdminStat(label: 'Educators', value: '$educatorCount'),
             ]),
           ]),
         ),
@@ -416,11 +420,6 @@ class _AdminDashboard extends StatelessWidget {
                     value: psychCount.toDouble(),
                     title: 'Psychs\n$psychCount',
                     color: AppTheme.accent,
-                    radius: 80),
-                PieChartSectionData(
-                    value: educatorCount.toDouble(),
-                    title: 'Educators\n$educatorCount',
-                    color: AppTheme.warning,
                     radius: 80),
               ], sectionsSpace: 4, centerSpaceRadius: 20))),
         )),
@@ -506,16 +505,15 @@ class _UserManagementTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 3,
+      length: 2,
       child: Column(children: [
-        const TabBar(tabs: [
-          Tab(text: 'Parents'),
-          Tab(text: 'Psychologists'),
-          Tab(text: 'Educators')
-        ], labelColor: Color(0xFF6C3483), indicatorColor: Color(0xFF6C3483)),
+        const TabBar(
+            tabs: [Tab(text: 'Parents'), Tab(text: 'Psychologists')],
+            labelColor: Color(0xFF6C3483),
+            indicatorColor: Color(0xFF6C3483)),
         Expanded(
             child: TabBarView(
-                children: ['parent', 'psychologist', 'educator'].map((role) {
+                children: ['parent', 'psychologist'].map((role) {
           final roleUsers = users[role] ?? [];
           return ListView(
             padding: const EdgeInsets.all(16),
@@ -538,9 +536,7 @@ class _UserManagementTab extends StatelessWidget {
                     icon: Icons.person_outline,
                     message: role == 'parent'
                         ? 'No parents registered'
-                        : role == 'psychologist'
-                            ? 'No psychologists registered'
-                            : 'No educators registered'),
+                        : 'No psychologists registered'),
               ...roleUsers.map((u) => _UserCard(
                   user: u,
                   onDelete: () async {
@@ -689,8 +685,10 @@ class _AnnouncementsTab extends StatefulWidget {
 class _AnnouncementsTabState extends State<_AnnouncementsTab> {
   final _titleCtrl = TextEditingController();
   final _msgCtrl = TextEditingController();
+
   String _category = 'Announcement';
   bool _submitting = false;
+
   List<dynamic> _announcements = [];
   bool _loading = true;
 
@@ -754,8 +752,7 @@ class _AnnouncementsTabState extends State<_AnnouncementsTab> {
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content:
-                Text('📢 Announcement successfully broadcast to all users!'),
+            content: Text('📢 Announcement sent to all users!'),
             backgroundColor: Colors.teal,
           ),
         );
@@ -778,46 +775,225 @@ class _AnnouncementsTabState extends State<_AnnouncementsTab> {
     }
   }
 
+  Future<void> _editAnnouncement(dynamic ann) async {
+    final id = ann['id'] ?? ann['notification_id'] ?? ann['pk'];
+    if (id == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cannot edit: missing notification id.')),
+      );
+      return;
+    }
+
+    final title = (ann['title'] ?? '').toString();
+    final message = (ann['message'] ?? '').toString();
+    final type = (ann['type'] ?? 'announcement').toString();
+
+    final updated = await showDialog<Map<String, String>>(
+      context: context,
+      builder: (ctx) {
+        final titleCtrl = TextEditingController(text: title);
+        final msgCtrl = TextEditingController(text: message);
+        String cat = type == 'announcement'
+            ? 'Announcement'
+            : (type == 'event'
+                ? 'Event'
+                : (type == 'clinical_news' ? 'Clinical News' : 'Announcement'));
+
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text('Edit announcement'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    DropdownButtonFormField<String>(
+                      value: cat,
+                      decoration: const InputDecoration(
+                        labelText: 'Announcement Category',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: const [
+                        DropdownMenuItem(
+                            value: 'Announcement',
+                            child: Text('📢 General Announcement')),
+                        DropdownMenuItem(
+                            value: 'Event',
+                            child: Text('📅 Special Event / Webinar')),
+                        DropdownMenuItem(
+                            value: 'Clinical News',
+                            child: Text('🧠 Clinical / Medical News')),
+                      ],
+                      onChanged: (val) {
+                        if (val == null) return;
+                        setState(() => cat = val);
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: titleCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Announcement Title',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: msgCtrl,
+                      maxLines: 4,
+                      decoration: const InputDecoration(
+                        labelText: 'Announcement Message',
+                        border: OutlineInputBorder(),
+                        alignLabelWithHint: true,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    final newTitle = titleCtrl.text.trim();
+                    final newMsg = msgCtrl.text.trim();
+                    if (newTitle.isEmpty || newMsg.isEmpty) return;
+
+                    final newType = cat == 'Announcement'
+                        ? 'announcement'
+                        : (cat == 'Event' ? 'event' : 'clinical_news');
+
+                    Navigator.pop(ctx, {
+                      'title': newTitle,
+                      'message': newMsg,
+                      'type': newType,
+                    });
+                  },
+                  child: const Text('Save'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (updated == null) return;
+
+    try {
+      await ApiService.updateNotification(
+        id: id,
+        title: updated['title'],
+        message: updated['message'],
+        type: updated['type'],
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Announcement updated.'),
+            backgroundColor: Colors.teal),
+      );
+      _loadAnnouncements();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Update failed: ${e.toString()}')),
+      );
+    }
+  }
+
+  Future<void> _deleteAnnouncement(dynamic ann) async {
+    final id = ann['id'] ?? ann['notification_id'] ?? ann['pk'];
+
+    if (id == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Cannot delete: missing notification id.')),
+      );
+      return;
+    }
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete announcement'),
+        content: const Text('Are you sure you want to delete this broadcast?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.danger),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      await ApiService.deleteNotification(id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Announcement deleted.'),
+            backgroundColor: Colors.teal),
+      );
+      _loadAnnouncements();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Delete failed: ${e.toString()}')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return RefreshIndicator(
       onRefresh: _loadAnnouncements,
       child: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(12),
         children: [
           Card(
-            elevation: 3,
+            elevation: 2,
             shadowColor: Colors.teal.withValues(alpha: 0.1),
             shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             child: Padding(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.all(8),
+                        padding: const EdgeInsets.all(6),
                         decoration: BoxDecoration(
                           color: Colors.teal.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: const Icon(Icons.campaign,
-                            color: Colors.teal, size: 24),
+                            color: Colors.teal, size: 22),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 10),
                       const Text(
-                        'Broadcast New Announcement',
+                        'Broadcast Announcement',
                         style: TextStyle(
-                          fontSize: 16,
+                          fontSize: 15,
                           fontWeight: FontWeight.bold,
                           color: AppTheme.textPrimary,
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
                     value: _category,
                     decoration: const InputDecoration(
@@ -863,13 +1039,13 @@ class _AnnouncementsTabState extends State<_AnnouncementsTab> {
                     decoration: const InputDecoration(
                       labelText: 'Announcement Message',
                       hintText:
-                          'Write the details of the announcement here for all parents, psychologists, and educators...',
+                          'Write the details of the announcement here for all parents and psychologists...',
                       border: OutlineInputBorder(),
                       alignLabelWithHint: true,
                     ),
                     enabled: !_submitting,
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
                   SizedBox(
                     width: double.infinity,
                     height: 48,
@@ -880,7 +1056,8 @@ class _AnnouncementsTabState extends State<_AnnouncementsTab> {
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        elevation: 2,
+                        elevation: 1.5,
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
                       ),
                       icon: _submitting
                           ? const SizedBox(
@@ -893,20 +1070,22 @@ class _AnnouncementsTabState extends State<_AnnouncementsTab> {
                             )
                           : const Icon(Icons.campaign),
                       label: Text(
-                        _submitting
-                            ? 'Broadcasting...'
-                            : 'Broadcast Announcement',
+                        _submitting ? 'Broadcasting...' : 'Broadcast',
                         style: const TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 15),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
                       ),
                       onPressed: _submitting ? null : _broadcastAnnouncement,
                     ),
                   ),
+                  const SizedBox(height: 18),
+                  const Divider(height: 1),
                 ],
               ),
             ),
           ),
-          const SizedBox(height: 28),
+          const SizedBox(height: 20),
           const SectionTitle('Broadcast History'),
           const SizedBox(height: 12),
           if (_loading)
@@ -934,40 +1113,68 @@ class _AnnouncementsTabState extends State<_AnnouncementsTab> {
                       .toString()
                       .substring(0, 16)
                   : '';
+              final id = ann['id'] ?? ann['notification_id'] ?? ann['pk'];
 
               return Card(
-                margin: const EdgeInsets.only(bottom: 12),
+                margin: const EdgeInsets.only(bottom: 10),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                   side: const BorderSide(color: Colors.teal, width: 1),
                 ),
                 child: ListTile(
                   contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                   leading: CircleAvatar(
                     backgroundColor: Colors.teal.withValues(alpha: 0.1),
                     child: const Icon(Icons.campaign, color: Colors.teal),
                   ),
                   title: Text(
                     title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 14),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13.5,
+                    ),
                   ),
                   subtitle: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 4),
                       Text(
-                        message,
+                        message.toString(),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                            color: AppTheme.textSecondary, fontSize: 13),
+                          color: AppTheme.textSecondary,
+                          fontSize: 12.5,
+                        ),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 6),
                       Text(
                         dateStr,
                         style:
                             const TextStyle(color: Colors.grey, fontSize: 10.5),
                       ),
+                    ],
+                  ),
+                  trailing: Wrap(
+                    spacing: 4,
+                    children: [
+                      if (id != null)
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline,
+                              color: AppTheme.danger),
+                          onPressed: () => _deleteAnnouncement(ann),
+                          tooltip: 'Delete announcement',
+                        ),
+                      if (id != null)
+                        IconButton(
+                          icon: const Icon(Icons.edit_outlined,
+                              color: AppTheme.primary),
+                          onPressed: () => _editAnnouncement(ann),
+                          tooltip: 'Edit announcement',
+                        ),
                     ],
                   ),
                 ),

@@ -10,7 +10,9 @@ import '../../models/models.dart';
 import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
 import '../../widgets/common_widgets.dart';
+import '../../widgets/edit_profile_dialog.dart';
 import '../parent/_notifications_tab.dart';
+import '../parent/_timeline_tab.dart';
 
 class PsychologistScreen extends StatefulWidget {
   const PsychologistScreen({super.key});
@@ -175,6 +177,16 @@ class _PsychologistScreenState extends State<PsychologistScreen> {
     return source.where((a) => allowedChildIds.contains(a.childId)).toList();
   }
 
+  List<Child> _filterTimelineChildren(List<Child> children) {
+    if (_selectedChildId != null) {
+      return children.where((c) => c.id == _selectedChildId).toList();
+    }
+    if (_selectedParentId != null) {
+      return children.where((c) => c.parentId == _selectedParentId).toList();
+    }
+    return children;
+  }
+
   Widget _buildFilters() {
     final displayChildren = _getDisplayChildren();
     final parents = _getUniqueParents();
@@ -304,15 +316,19 @@ class _PsychologistScreenState extends State<PsychologistScreen> {
     final user = context.watch<AuthService>().currentUser;
     final filteredPending = _filterAssessments(_pending);
 
+    final childrenById = {
+      for (final c in _allChildren) c.id: c,
+    };
+
     final pages = [
       _PsychDashboard(
         pending: filteredPending,
         allAssessments: [..._pending, ..._reviewed],
+        childrenById: childrenById,
         onRefresh: _loadData,
       ),
-      _ReviewTab(
-        pending: filteredPending,
-        allAssessments: [..._pending, ..._reviewed],
+      _PsychTimelineTab(
+        getChildren: () => _filterTimelineChildren(_getDisplayChildren()),
         onRefresh: _loadData,
       ),
       _ReportTab(
@@ -350,6 +366,18 @@ class _PsychologistScreenState extends State<PsychologistScreen> {
         ),
         backgroundColor: const Color(0xFFF0FFF4),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.edit),
+            onPressed: () async {
+              final updated = await showDialog<bool>(
+                context: context,
+                builder: (_) => const EditProfileDialog(),
+              );
+              if (updated == true) {
+                await _loadData();
+              }
+            },
+          ),
           IconButton(icon: const Icon(Icons.refresh), onPressed: _loadData),
           IconButton(
             icon: const Icon(Icons.logout),
@@ -358,7 +386,8 @@ class _PsychologistScreenState extends State<PsychologistScreen> {
                 context: context,
                 builder: (ctx) => AlertDialog(
                   title: const Text('Confirm Logout'),
-                  content: const Text('Are you sure you want to log out of AutiSense?'),
+                  content: const Text(
+                      'Are you sure you want to log out of AutiSense?'),
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.pop(ctx, false),
@@ -435,9 +464,9 @@ class _PsychologistScreenState extends State<PsychologistScreen> {
             label: 'Overview',
           ),
           NavigationDestination(
-            icon: Icon(Icons.pending_actions_outlined),
-            selectedIcon: Icon(Icons.pending_actions),
-            label: 'Review',
+            icon: Icon(Icons.timeline_outlined),
+            selectedIcon: Icon(Icons.timeline),
+            label: 'Dashboard',
           ),
           NavigationDestination(
             icon: Icon(Icons.people_outline),
@@ -458,11 +487,13 @@ class _PsychologistScreenState extends State<PsychologistScreen> {
 class _PsychDashboard extends StatelessWidget {
   final List<Assessment> pending;
   final List<Assessment> allAssessments;
+  final Map<String, Child> childrenById;
   final VoidCallback onRefresh;
 
   const _PsychDashboard({
     required this.pending,
     required this.allAssessments,
+    required this.childrenById,
     required this.onRefresh,
   });
 
@@ -531,6 +562,7 @@ class _PsychDashboard extends StatelessWidget {
             ),
           ...pending.map((a) => _PendingCard(
                 assessment: a,
+                child: childrenById[a.childId],
                 isCompact: false,
                 onReviewed: onRefresh,
                 parentId: a.parentId,
@@ -540,6 +572,7 @@ class _PsychDashboard extends StatelessWidget {
             const SectionTitle('Recently Reviewed'),
             ...reviewed.take(5).map((a) => _ReviewedCard(
                   assessment: a,
+                  child: childrenById[a.childId],
                   onRefresh: onRefresh,
                 )),
           ],
@@ -672,58 +705,36 @@ class _StatCard extends StatelessWidget {
       );
 }
 
-class _ReviewTab extends StatelessWidget {
-  final List<Assessment> pending;
-  final List<Assessment> allAssessments;
-  final VoidCallback onRefresh;
+class _PsychTimelineTab extends StatelessWidget {
+  final List<Child> Function() getChildren;
+  final Future<void> Function()? onRefresh;
 
-  const _ReviewTab({
-    required this.pending,
-    required this.allAssessments,
-    required this.onRefresh,
+  const _PsychTimelineTab({
+    required this.getChildren,
+    this.onRefresh,
   });
 
   @override
   Widget build(BuildContext context) {
-    final reviewed =
-        allAssessments.where((a) => a.status != 'pending').toList();
-
-    return RefreshIndicator(
-      onRefresh: () async => onRefresh(),
-      child: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          const SectionTitle('Pending Reviews'),
-          if (pending.isEmpty)
-            const EmptyState(
-              icon: Icons.check_circle_outline,
-              message: 'All assessments reviewed!',
-            ),
-          ...pending.map((a) => _PendingCard(
-                assessment: a,
-                isCompact: false,
-                onReviewed: onRefresh,
-                parentId: a.parentId,
-              )),
-          if (reviewed.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            const SectionTitle('Recently Reviewed'),
-            ...reviewed.take(10).map((a) => _ReviewedCard(
-                  assessment: a,
-                  onRefresh: onRefresh,
-                )),
-          ],
-        ],
-      ),
+    return TimelineTab(
+      getChildren: getChildren,
+      onRefresh: onRefresh,
     );
   }
 }
 
+// NOTE: _ReviewTab removed from psychologist navigation (replaced with timeline dashboard).
+
 class _ReviewedCard extends StatefulWidget {
   final Assessment assessment;
+  final Child? child;
   final VoidCallback onRefresh;
 
-  const _ReviewedCard({required this.assessment, required this.onRefresh});
+  const _ReviewedCard({
+    required this.assessment,
+    required this.child,
+    required this.onRefresh,
+  });
 
   @override
   State<_ReviewedCard> createState() => _ReviewedCardState();
@@ -927,7 +938,12 @@ class _ReviewedCardState extends State<_ReviewedCard> {
     final score = assessment.correctedScore ?? assessment.autismScore;
     final statusLabel =
         assessment.status == 'corrected' ? 'Corrected' : 'Confirmed';
-    final childName = assessment.childName ?? 'Child ${assessment.childId}';
+    final childName = widget.child?.name ??
+        assessment.childName ??
+        'Child ${assessment.childId}';
+    final childAgeGender = widget.child != null
+        ? '${widget.child!.age} yrs • ${widget.child!.gender}'
+        : null;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
@@ -946,7 +962,9 @@ class _ReviewedCardState extends State<_ReviewedCard> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    '$childName — ${assessment.activityType}',
+                    childAgeGender != null
+                        ? '$childName • $childAgeGender — ${assessment.activityType}'
+                        : '$childName — ${assessment.activityType}',
                     style: const TextStyle(
                         fontSize: 14, fontWeight: FontWeight.w500),
                   ),
@@ -1020,19 +1038,24 @@ class _ReviewedCardState extends State<_ReviewedCard> {
 
 class _PendingCard extends StatelessWidget {
   final Assessment assessment;
+  final Child? child;
   final bool isCompact;
   final VoidCallback? onReviewed;
   final String? parentId;
 
   const _PendingCard({
     required this.assessment,
+    required this.child,
     required this.isCompact,
     this.onReviewed,
     this.parentId,
   });
 
   String get _displayChildName =>
-      assessment.childName ?? 'Child ${assessment.childId}';
+      child?.name ?? assessment.childName ?? 'Child ${assessment.childId}';
+
+  String? get _displayChildAgeGender =>
+      child == null ? null : '${child!.age} yrs • ${child!.gender}';
 
   String get _displayParentName {
     return assessment.parentName ??
@@ -1300,7 +1323,9 @@ class _PendingCard extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                _displayChildName,
+                _displayChildAgeGender != null
+                    ? '$_displayChildName • $_displayChildAgeGender'
+                    : _displayChildName,
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
@@ -1417,7 +1442,8 @@ class _ReportTabState extends State<_ReportTab> {
     setState(() {
       _loadingReport = true;
       _loadedChildId = childId;
-      _reportCtrl.text = "Loading professional clinical child data & generating AI report...";
+      _reportCtrl.text =
+          "Loading professional clinical child data & generating AI report...";
     });
 
     try {
@@ -1425,9 +1451,17 @@ class _ReportTabState extends State<_ReportTab> {
       if (!mounted) return;
 
       if (widget.selectedChildId == childId) {
+        // Prefer the persisted psychologist report stored under the child profile.
+        // Fallback to AI-generated report.
+        final storedReport = res['psychologist_report'] as String?;
         final aiReport = res['ai_report'] as String?;
+
         setState(() {
-          _reportCtrl.text = aiReport ?? "No report data could be loaded. Please record assessments for this child.";
+          _reportCtrl.text = (storedReport != null &&
+                  storedReport.trim().isNotEmpty)
+              ? storedReport
+              : (aiReport ??
+                  "No report data could be loaded. Please record assessments for this child.");
           _loadingReport = false;
         });
       }
@@ -1498,11 +1532,13 @@ class _ReportTabState extends State<_ReportTab> {
       final prefix = "🧠 [Verified Clinical Progress Report]\n\n";
       final contentToSend = prefix + _reportCtrl.text.trim();
 
+      final user = context.read<AuthService>().currentUser;
       final result = await ApiService.sendChildReport(
         recipientId: _selectedParentId!,
         childId: _selectedChildId!,
         childName: _selectedChildName,
         reportContent: contentToSend,
+        psychologistId: user?.id ?? '',
         psychologistName: _psychologistName,
         parentName: _selectedParentName,
       );
@@ -1514,12 +1550,15 @@ class _ReportTabState extends State<_ReportTab> {
         _loadedChildId = null;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Clinical progress report sent to parent successfully!'),
+            content:
+                Text('Clinical progress report sent to parent successfully!'),
             backgroundColor: AppTheme.accent,
           ),
         );
+        // Refresh parent-facing data lists and then reload the persisted psychologist report.
         widget.onRefresh();
-        _loadAIReport();
+        setState(() => _loadedChildId = null);
+        await _loadAIReport();
       } else {
         final msg = result['message'] ?? 'Please try again.';
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1595,9 +1634,12 @@ class _ReportTabState extends State<_ReportTab> {
         );
       }
 
-      final childAssessments = widget.allAssessments.where((a) => a.childId == child.id).toList();
+      final childAssessments =
+          widget.allAssessments.where((a) => a.childId == child.id).toList();
       final completedCount = childAssessments.length;
-      final scoreValues = childAssessments.map((a) => a.correctedScore ?? a.autismScore).toList();
+      final scoreValues = childAssessments
+          .map((a) => a.correctedScore ?? a.autismScore)
+          .toList();
       final avgScore = scoreValues.isEmpty
           ? 0.0
           : scoreValues.reduce((b, a) => b + a) / scoreValues.length;
@@ -1612,7 +1654,8 @@ class _ReportTabState extends State<_ReportTab> {
             Card(
               elevation: 4,
               shadowColor: AppTheme.primary.withValues(alpha: 0.15),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20)),
               child: Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
@@ -1629,7 +1672,9 @@ class _ReportTabState extends State<_ReportTab> {
                       radius: 36,
                       backgroundColor: AppTheme.primary.withValues(alpha: 0.1),
                       child: Text(
-                        child.name.isNotEmpty ? child.name[0].toUpperCase() : 'C',
+                        child.name.isNotEmpty
+                            ? child.name[0].toUpperCase()
+                            : 'C',
                         style: const TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.bold,
@@ -1678,7 +1723,8 @@ class _ReportTabState extends State<_ReportTab> {
                             ),
                           ],
                         ),
-                        Container(height: 24, width: 1, color: Colors.grey[200]),
+                        Container(
+                            height: 24, width: 1, color: Colors.grey[200]),
                         Column(
                           children: [
                             Text(
@@ -1686,7 +1732,9 @@ class _ReportTabState extends State<_ReportTab> {
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
-                                color: avgScore >= 6 ? AppTheme.danger : AppTheme.accent,
+                                color: avgScore >= 6
+                                    ? AppTheme.danger
+                                    : AppTheme.accent,
                               ),
                             ),
                             const SizedBox(height: 2),
@@ -1706,7 +1754,7 @@ class _ReportTabState extends State<_ReportTab> {
               ),
             ),
             const SizedBox(height: 32),
-            
+
             // Explanation/Info Section
             Container(
               padding: const EdgeInsets.all(18),
@@ -1720,7 +1768,8 @@ class _ReportTabState extends State<_ReportTab> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.psychology, color: AppTheme.primary, size: 22),
+                      const Icon(Icons.psychology,
+                          color: AppTheme.primary, size: 22),
                       const SizedBox(width: 8),
                       const Text(
                         'RAG Clinical AI Analysis',
@@ -1746,7 +1795,7 @@ class _ReportTabState extends State<_ReportTab> {
               ),
             ),
             const SizedBox(height: 36),
-            
+
             // Action Button to Generate
             SizedBox(
               width: double.infinity,

@@ -13,15 +13,22 @@ class ApiService {
     if (statusCode == 401) onUnauthorized?.call();
   }
 
+  static String _cleanUrl(String url) {
+    // Prevent cases like " 192.168.1.241" getting URL-encoded into "%20192.168..."
+    // causing: FormatException: %20192... contains %
+    final cleaned = url.trim().replaceAll(RegExp(r'\s+'), '');
+    return cleaned;
+  }
+
   // Auto-detect: Android emulator → 10.0.2.2, otherwise → 127.0.0.1
   // For physical device on same network, replace with your PC's IP (run `ipconfig`)
   static String get baseUrl {
     if (Platform.isAndroid) {
       // Physical device (Android) on same LAN as backend
       // Using PC's LAN IPv4 address found via ipconfig: 10.236.250.160
-      return 'http:// 192.168.1.241:8000';
+      return _cleanUrl('http://192.168.1.45:8000');
     }
-    return 'http://127.0.0.1:8000';
+    return _cleanUrl('http://127.0.0.1:8000');
   }
 
   static Future<String?> _getToken() async {
@@ -38,8 +45,8 @@ class ApiService {
   }
 
   // AUTH
-  static Future<Map<String, dynamic>> login(
-      String email, String password, [String? role]) async {
+  static Future<Map<String, dynamic>> login(String email, String password,
+      [String? role]) async {
     try {
       final res = await http
           .post(
@@ -325,6 +332,48 @@ class ApiService {
     return [];
   }
 
+  static Future<void> deleteNotification(Object id) async {
+    final headers = await _headers();
+    final res = await http.delete(
+      Uri.parse('$baseUrl/notifications/${id.toString()}'),
+      headers: headers,
+    );
+    _check401(res.statusCode);
+    if (res.statusCode != 200 && res.statusCode != 204) {
+      throw Exception(
+          'Failed to delete notification: ${res.statusCode} ${res.body}');
+    }
+  }
+
+  static Future<Map<String, dynamic>> updateNotification({
+    required Object id,
+    String? title,
+    String? message,
+    String? type,
+  }) async {
+    final headers = await _headers();
+    final body = <String, dynamic>{
+      if (title != null) 'title': title,
+      if (message != null) 'message': message,
+      if (type != null) 'type': type,
+    };
+
+    final res = await http.patch(
+      Uri.parse('$baseUrl/notifications/${id.toString()}/update'),
+      headers: headers,
+      body: jsonEncode(body),
+    );
+
+    _check401(res.statusCode);
+    if (res.statusCode != 200) {
+      throw Exception(
+          'Failed to update notification: ${res.statusCode} ${res.body}');
+    }
+
+    final decoded = jsonDecode(res.body);
+    return decoded is Map<String, dynamic> ? decoded : <String, dynamic>{};
+  }
+
   static Future<bool> sendNotification(
       {required String recipientId,
       required String title,
@@ -421,6 +470,7 @@ class ApiService {
     required String childId,
     required String childName,
     required String reportContent,
+    required String psychologistId,
     required String psychologistName,
     required String parentName,
   }) async {
@@ -428,6 +478,8 @@ class ApiService {
     final title = '📋 Child Report: $childName';
     final message =
         '$psychologistName → $parentName  ➤ $childName\'s report:\n\n$reportContent';
+
+    // 1) Send to parent
     final res = await http.post(Uri.parse('$baseUrl/notifications/send'),
         headers: headers,
         body: jsonEncode({
@@ -438,12 +490,28 @@ class ApiService {
           'child_id': childId,
         }));
     _check401(res.statusCode);
-    if (res.statusCode == 200 || res.statusCode == 201) {
+    final parentOk = res.statusCode == 200 || res.statusCode == 201;
+
+    // 2) Also send to psychologist (so they can see it in their "previous report")
+    final psyRes = await http.post(Uri.parse('$baseUrl/notifications/send'),
+        headers: headers,
+        body: jsonEncode({
+          'recipient_id': psychologistId,
+          'title': title,
+          'message': message,
+          'type': 'psychologist_report',
+          'child_id': childId,
+        }));
+    _check401(psyRes.statusCode);
+    final psyOk = psyRes.statusCode == 200 || psyRes.statusCode == 201;
+
+    if (parentOk || psyOk) {
       return {'success': true};
     }
     return {
       'success': false,
-      'message': 'Server returned ${res.statusCode}: ${res.body}',
+      'message':
+          'Server returned parent=${res.statusCode}, psy=${psyRes.statusCode}: ${psyRes.body}',
     };
   }
 
